@@ -107,7 +107,6 @@
 	"module": "dist/bundler.mjs",
 	"browser-minified": "dist/peerjs.min.js",
 	"browser-unminified": "dist/peerjs.js",
-	"browser-minified-msgpack": "dist/serializer.msgpack.mjs",
 	"types": "dist/types.d.ts",
 	"engines": {
 		"node": ">= 14"
@@ -148,16 +147,6 @@
 				"browsers": "chrome >= 83, edge >= 83, firefox >= 80, safari >= 15"
 			},
 			"source": "lib/global.ts"
-		},
-		"browser-minified-msgpack": {
-			"context": "browser",
-			"outputFormat": "esmodule",
-			"isLibrary": true,
-			"optimize": true,
-			"engines": {
-				"browsers": "chrome >= 83, edge >= 83, firefox >= 102, safari >= 15"
-			},
-			"source": "lib/dataconnection/StreamConnection/MsgPack.ts"
 		}
 	},
 	"scripts": {

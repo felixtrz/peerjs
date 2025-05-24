@@ -1,5 +1,4 @@
 import logger from "./logger";
-import type { MediaConnection } from "./mediaconnection";
 import type { DataConnection } from "./dataconnection/DataConnection";
 import {
 	BaseConnectionErrorType,
@@ -7,17 +6,12 @@ import {
 	PeerErrorType,
 	ServerMessageType,
 } from "./enums";
-import type { BaseConnection, BaseConnectionEvents } from "./baseconnection";
-import type { ValidEventTypes } from "eventemitter3";
 
 /**
  * Manages all negotiations between Peers.
  */
-export class Negotiator<
-	Events extends ValidEventTypes,
-	ConnectionType extends BaseConnection<Events | BaseConnectionEvents>,
-> {
-	constructor(readonly connection: ConnectionType) {}
+export class Negotiator<Connection extends DataConnection> {
+	constructor(readonly connection: Connection) {}
 
 	/** Returns a PeerConnection object set up correctly (for data, media). */
 	startConnection(options: any) {
@@ -26,9 +20,7 @@ export class Negotiator<
 		// Set the connection's PC.
 		this.connection.peerConnection = peerConnection;
 
-		if (this.connection.type === ConnectionType.Media && options._stream) {
-			this._addTracksToConnection(options._stream, peerConnection);
-		}
+		// Media-specific logic removed as we only support DataConnection now
 
 		// What do we need to do now?
 		if (options.originator) {
@@ -141,21 +133,8 @@ export class Negotiator<
 			connection._initializeDataChannel(dataChannel);
 		};
 
-		// MEDIACONNECTION.
-		logger.log("Listening for remote stream");
-
-		peerConnection.ontrack = (evt) => {
-			logger.log("Received remote stream");
-
-			const stream = evt.streams[0];
-			const connection = provider.getConnection(peerId, connectionId);
-
-			if (connection.type === ConnectionType.Media) {
-				const mediaConnection = <MediaConnection>connection;
-
-				this._addStreamToMediaConnection(stream, mediaConnection);
-			}
-		};
+		// Remote stream handling removed as we only support DataConnection now
+		peerConnection.ontrack = () => {};
 	}
 
 	cleanup(): void {
@@ -337,31 +316,5 @@ export class Negotiator<
 		}
 	}
 
-	private _addTracksToConnection(
-		stream: MediaStream,
-		peerConnection: RTCPeerConnection,
-	): void {
-		logger.log(`add tracks from stream ${stream.id} to peer connection`);
-
-		if (!peerConnection.addTrack) {
-			return logger.error(
-				`Your browser does't support RTCPeerConnection#addTrack. Ignored.`,
-			);
-		}
-
-		stream.getTracks().forEach((track) => {
-			peerConnection.addTrack(track, stream);
-		});
-	}
-
-	private _addStreamToMediaConnection(
-		stream: MediaStream,
-		mediaConnection: MediaConnection,
-	): void {
-		logger.log(
-			`add stream ${stream.id} to media connection ${mediaConnection.connectionId}`,
-		);
-
-		mediaConnection.addStream(stream);
-	}
+	// Media-specific methods removed as we only support DataConnection now
 }

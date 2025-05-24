@@ -8,15 +8,7 @@ const testfile = params.get("testfile");
 const serialization = params.get("serialization");
 
 (async () => {
-	let serializers = {};
-	try {
-		const { MsgPack } = await import("/dist/serializer.msgpack.mjs");
-		serializers = {
-			MsgPack,
-		};
-	} catch (e) {
-		console.log(e);
-	}
+	const serializers = {};
 
 	const { check, send } = await import(`./${testfile}.js`);
 	document.getElementsByTagName("title")[0].innerText =

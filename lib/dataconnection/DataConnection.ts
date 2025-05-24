@@ -7,10 +7,33 @@ import {
 	ServerMessageType,
 } from "../enums";
 import type { Peer } from "../peer";
-import { BaseConnection, type BaseConnectionEvents } from "../baseconnection";
 import type { ServerMessage } from "../servermessage";
-import type { EventsWithError } from "../peerError";
+import {
+	EventEmitterWithError,
+	type EventsWithError,
+	PeerError,
+} from "../peerError";
 import { randomToken } from "../utils/randomToken";
+
+export interface BaseConnectionEvents<
+	ErrorType extends string = BaseConnectionErrorType,
+> extends EventsWithError<ErrorType> {
+	/**
+	 * Emitted when either you or the remote peer closes the connection.
+	 *
+	 * ```ts
+	 * connection.on('close', () => { ... });
+	 * ```
+	 */
+	close: () => void;
+	/**
+	 * ```ts
+	 * connection.on('error', (error) => { ... });
+	 * ```
+	 */
+	error: (error: PeerError<`${ErrorType}`>) => void;
+	iceStateChanged: (state: RTCIceConnectionState) => void;
+}
 
 export interface DataConnectionEvents
 	extends EventsWithError<DataConnectionErrorType | BaseConnectionErrorType>,
@@ -28,14 +51,39 @@ export interface DataConnectionEvents
 /**
  * Wraps a DataChannel between two Peers.
  */
-export abstract class DataConnection extends BaseConnection<
-	DataConnectionEvents,
-	DataConnectionErrorType
+export abstract class DataConnection extends EventEmitterWithError<
+	DataConnectionErrorType | BaseConnectionErrorType,
+	DataConnectionEvents
 > {
 	protected static readonly ID_PREFIX = "dc_";
 	protected static readonly MAX_BUFFERED_AMOUNT = 8 * 1024 * 1024;
 
-	private _negotiator: Negotiator<DataConnectionEvents, this>;
+	protected _open = false;
+
+	/**
+	 * Any type of metadata associated with the connection,
+	 * passed in by whoever initiated the connection.
+	 */
+	readonly metadata: any;
+	connectionId: string;
+
+	peerConnection: RTCPeerConnection;
+	dataChannel: RTCDataChannel;
+
+	/**
+	 * The optional label passed in or assigned by PeerJS when the connection was initiated.
+	 */
+	label: string;
+
+	/**
+	 * Whether the data connection is active (e.g. open and ready for messages).
+	 * You can check this if you want to set a maximum wait time for a connection.
+	 */
+	get open() {
+		return this._open;
+	}
+
+	private _negotiator: Negotiator<DataConnection>;
 	abstract readonly serialization: string;
 	readonly reliable: boolean;
 
@@ -43,8 +91,17 @@ export abstract class DataConnection extends BaseConnection<
 		return ConnectionType.Data;
 	}
 
-	constructor(peerId: string, provider: Peer, options: any) {
-		super(peerId, provider, options);
+	constructor(
+		/**
+		 * The ID of the peer on the other end of this connection.
+		 */
+		readonly peer: string,
+		public provider: Peer,
+		readonly options: any,
+	) {
+		super();
+
+		this.metadata = options.metadata;
 
 		this.connectionId =
 			this.options.connectionId || DataConnection.ID_PREFIX + randomToken();
@@ -63,7 +120,7 @@ export abstract class DataConnection extends BaseConnection<
 	}
 
 	/** Called by the Negotiator when the DataChannel is ready. */
-	override _initializeDataChannel(dc: RTCDataChannel): void {
+	_initializeDataChannel(dc: RTCDataChannel): void {
 		this.dataChannel = dc;
 
 		this.dataChannel.onopen = () => {

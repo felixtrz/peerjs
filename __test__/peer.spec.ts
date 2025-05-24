@@ -1,7 +1,7 @@
 import "./setup";
 import { Peer } from "../lib/peer";
 import { Server } from "mock-socket";
-import { ConnectionType, PeerErrorType, ServerMessageType } from "../lib/enums";
+import { PeerErrorType, ServerMessageType } from "../lib/enums";
 import { expect, beforeAll, afterAll, describe, it } from "@jest/globals";
 
 const createMockServer = (): Server => {
@@ -42,68 +42,6 @@ describe("Peer", () => {
 			expect(peer.options.key).toBe("anotherKey");
 
 			peer.destroy();
-		});
-	});
-
-	describe.skip("after call to peer #2", () => {
-		let mockServer;
-
-		beforeAll(() => {
-			mockServer = createMockServer();
-		});
-
-		it("Peer#1 should has id #1", (done) => {
-			const peer1 = new Peer("1", { port: 8080, host: "localhost" });
-			expect(peer1.open).toBe(false);
-
-			const mediaOptions = {
-				metadata: { var: "123" },
-				constraints: {
-					mandatory: {
-						OfferToReceiveAudio: true,
-						OfferToReceiveVideo: true,
-					},
-				},
-			};
-
-			const track = new MediaStreamTrack();
-			const mediaStream = new MediaStream([track]);
-
-			const mediaConnection = peer1.call("2", mediaStream, { ...mediaOptions });
-
-			expect(typeof mediaConnection.connectionId).toBe("string");
-			expect(mediaConnection.type).toBe(ConnectionType.Media);
-			expect(mediaConnection.peer).toBe("2");
-			expect(mediaConnection.options).toEqual(
-				// expect.arrayContaining([mediaOptions]),mediaOptions
-				expect.objectContaining(mediaOptions),
-			);
-			expect(mediaConnection.metadata).toEqual(mediaOptions.metadata);
-			expect(mediaConnection.peerConnection.getSenders()[0].track.id).toBe(
-				track.id,
-			);
-
-			peer1.once("open", (id) => {
-				expect(id).toBe("1");
-				//@ts-ignore
-				expect(peer1._lastServerId).toBe("1");
-				expect(peer1.disconnected).toBe(false);
-				expect(peer1.destroyed).toBe(false);
-				expect(peer1.open).toBe(true);
-
-				peer1.destroy();
-
-				expect(peer1.disconnected).toBe(true);
-				expect(peer1.destroyed).toBe(true);
-				expect(peer1.open).toBe(false);
-				expect(peer1.connections).toEqual({});
-
-				done();
-			});
-		});
-
-		afterAll(() => {
-			mockServer.stop();
 		});
 	});
 

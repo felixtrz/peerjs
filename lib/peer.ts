@@ -1,7 +1,6 @@
 import { util } from "./util";
 import logger, { LogLevel } from "./logger";
 import { Socket } from "./socket";
-import { MediaConnection } from "./mediaconnection";
 import type { DataConnection } from "./dataconnection/DataConnection";
 import {
 	ConnectionType,
@@ -12,7 +11,6 @@ import {
 import type { ServerMessage } from "./servermessage";
 import { API } from "./api";
 import type {
-	CallOption,
 	PeerConnectOption,
 	PeerJSOption,
 } from "./optionInterfaces";
@@ -89,10 +87,6 @@ export interface PeerEvents {
 	 */
 	connection: (dataConnection: DataConnection) => void;
 	/**
-	 * Emitted when a remote peer attempts to call you.
-	 */
-	call: (mediaConnection: MediaConnection) => void;
-	/**
 	 * Emitted when the peer is destroyed and can no longer accept or create any new connections.
 	 */
 	close: () => void;
@@ -134,7 +128,7 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 	private _open = false; // Sockets and such are not yet open.
 	private readonly _connections: Map<
 		string,
-		(DataConnection | MediaConnection)[]
+		DataConnection[]
 	> = new Map(); // All connections for this peer.
 	private readonly _lostMessages: Map<string, ServerMessage[]> = new Map(); // src => [list of messages]
 	/**
@@ -393,16 +387,7 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 				}
 
 				// Create a new connection.
-				if (payload.type === ConnectionType.Media) {
-					const mediaConnection = new MediaConnection(peerId, this, {
-						connectionId: connectionId,
-						_payload: payload,
-						metadata: payload.metadata,
-					});
-					connection = mediaConnection;
-					this._addConnection(peerId, connection);
-					this.emit("call", mediaConnection);
-				} else if (payload.type === ConnectionType.Data) {
+				if (payload.type === ConnectionType.Data) {
 					const dataConnection = new this._serializers[payload.serialization](
 						peerId,
 						this,
@@ -515,49 +500,11 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 		return dataConnection;
 	}
 
-	/**
-	 * Calls the remote peer specified by id and returns a media connection.
-	 * @param peer The brokering ID of the remote peer (their peer.id).
-	 * @param stream The caller's media stream
-	 * @param options Metadata associated with the connection, passed in by whoever initiated the connection.
-	 */
-	call(
-		peer: string,
-		stream: MediaStream,
-		options: CallOption = {},
-	): MediaConnection {
-		if (this.disconnected) {
-			logger.warn(
-				"You cannot connect to a new Peer because you called " +
-					".disconnect() on this Peer and ended your connection with the " +
-					"server. You can create a new Peer to reconnect.",
-			);
-			this.emitError(
-				PeerErrorType.Disconnected,
-				"Cannot connect to new Peer after disconnecting from server.",
-			);
-			return;
-		}
 
-		if (!stream) {
-			logger.error(
-				"To call a peer, you must provide a stream from your browser's `getUserMedia`.",
-			);
-			return;
-		}
-
-		const mediaConnection = new MediaConnection(peer, this, {
-			...options,
-			_stream: stream,
-		});
-		this._addConnection(peer, mediaConnection);
-		return mediaConnection;
-	}
-
-	/** Add a data/media connection to this peer. */
+	/** Add a data connection to this peer. */
 	private _addConnection(
 		peerId: string,
-		connection: MediaConnection | DataConnection,
+		connection: DataConnection,
 	): void {
 		logger.log(
 			`add connection ${connection.type}:${connection.connectionId} to peerId:${peerId}`,
@@ -570,7 +517,7 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 	}
 
 	//TODO should be private
-	_removeConnection(connection: DataConnection | MediaConnection): void {
+	_removeConnection(connection: DataConnection): void {
 		const connections = this._connections.get(connection.peer);
 
 		if (connections) {
@@ -585,11 +532,11 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 		this._lostMessages.delete(connection.connectionId);
 	}
 
-	/** Retrieve a data/media connection for this peer. */
+	/** Retrieve a data connection for this peer. */
 	getConnection(
 		peerId: string,
 		connectionId: string,
-	): null | DataConnection | MediaConnection {
+	): null | DataConnection {
 		const connections = this._connections.get(peerId);
 		if (!connections) {
 			return null;

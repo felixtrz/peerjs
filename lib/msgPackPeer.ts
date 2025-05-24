@@ -1,12 +1,12 @@
 import { Peer, type SerializerMapping } from "./peer";
-import { MsgPack } from "./exports";
+import { BinaryPack } from "./dataconnection/BufferedConnection/BinaryPack";
 
 /**
  * @experimental
+ * Uses BinaryPack serialization by default
  */
 export class MsgPackPeer extends Peer {
 	override _serializers: SerializerMapping = {
-		MsgPack,
-		default: MsgPack,
+		default: BinaryPack,
 	};
 }

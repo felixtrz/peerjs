@@ -36,16 +36,3 @@ export interface PeerConnectOption {
 	reliable?: boolean;
 }
 
-export interface CallOption {
-	/**
-	 * Metadata associated with the connection, passed in by whoever initiated the connection.
-	 *
-	 * Can be accessed with {@apilink MediaConnection.metadata}.
-	 * Can be any serializable type.
-	 */
-	metadata?: any;
-	/**
-	 * Function which runs before create offer to modify sdp offer message.
-	 */
-	sdpTransform?: Function;
-}
