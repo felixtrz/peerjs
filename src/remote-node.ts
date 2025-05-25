@@ -21,6 +21,10 @@ export interface RemoteNodeEvents extends EventsWithError<string> {
 	 * Emitted when an error occurs.
 	 */
 	error: (error: Error) => void;
+	/**
+	 * Emitted when the ping value is updated.
+	 */
+	ping: (latency: number) => void;
 }
 
 /**
@@ -31,6 +35,8 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	private _open = false;
 	private _destroyed = false;
 	private _lostMessages: Map<string, ServerMessage[]> = new Map(); // connectionId => [list of messages]
+	private _ping: number | null = null;
+	private _pingInterval: ReturnType<typeof setInterval> | null = null;
 
 	/**
 	 * The ID of the remote peer.
@@ -62,6 +68,14 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	 */
 	get connectionCount() {
 		return this._connections.length;
+	}
+
+	/**
+	 * The current ping latency in milliseconds to this node.
+	 * Returns null if no ping data is available.
+	 */
+	get ping() {
+		return this._ping;
 	}
 
 	constructor(
@@ -156,6 +170,7 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		if (!this._open && this._connections.some((conn) => conn.open)) {
 			this._open = true;
 			this.emit("open");
+			this._startPingMonitoring();
 		}
 	}
 
@@ -237,6 +252,7 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 
 		this._destroyed = true;
 		this._open = false;
+		this._stopPingMonitoring();
 
 		// Close all connections
 		const connections = [...this._connections];
@@ -303,5 +319,70 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	 */
 	disconnect(): void {
 		this.close();
+	}
+
+	/**
+	 * Starts monitoring ping/latency to the remote node.
+	 * @internal
+	 */
+	private _startPingMonitoring(): void {
+		if (this._pingInterval) {
+			return;
+		}
+
+		// Initial ping measurement
+		this._measurePing();
+
+		// Set up periodic ping measurements (every 5 seconds)
+		this._pingInterval = globalThis.setInterval(() => {
+			if (this._open && !this._destroyed) {
+				this._measurePing();
+			}
+		}, 5000);
+	}
+
+	/**
+	 * Stops monitoring ping/latency.
+	 * @internal
+	 */
+	private _stopPingMonitoring(): void {
+		if (this._pingInterval) {
+			globalThis.clearInterval(this._pingInterval);
+			this._pingInterval = null;
+		}
+	}
+
+	/**
+	 * Measures the current ping/latency to the remote node.
+	 * @internal
+	 */
+	private async _measurePing(): Promise<void> {
+		const openConnection = this._connections.find((conn) => conn.open && conn.peerConnection);
+		if (!openConnection || !openConnection.peerConnection) {
+			return;
+		}
+
+		try {
+			const stats = await openConnection.peerConnection.getStats();
+			let totalRtt = 0;
+			let rttCount = 0;
+
+			stats.forEach((report) => {
+				// Look for candidate-pair stats which contain RTT
+				if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
+					totalRtt += report.currentRoundTripTime * 1000; // Convert to milliseconds
+					rttCount++;
+				}
+			});
+
+			if (rttCount > 0) {
+				const avgRtt = Math.round(totalRtt / rttCount);
+				this._ping = avgRtt;
+				this.emit('ping', avgRtt);
+				logger.log(`Ping to ${this.peer}: ${avgRtt}ms`);
+			}
+		} catch (error) {
+			logger.error(`Failed to measure ping for ${this.peer}:`, error);
+		}
 	}
 }

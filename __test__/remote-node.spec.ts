@@ -14,6 +14,7 @@ class MockDataConnection extends EventEmitter {
 	readonly metadata: any;
 	readonly label: string;
 	readonly reliable: boolean;
+	peerConnection?: RTCPeerConnection;
 
 	_open = false;
 
@@ -65,6 +66,9 @@ describe("RemoteNode", () => {
 	});
 
 	afterEach(() => {
+		// Ensure we're using real timers for cleanup
+		jest.useRealTimers();
+		
 		if (remoteNode && !remoteNode.destroyed) {
 			remoteNode.close();
 		}
@@ -393,6 +397,324 @@ describe("RemoteNode", () => {
 			remoteNode.disconnect();
 
 			expect(closeSpy).toHaveBeenCalled();
+		});
+	});
+
+	describe("ping monitoring", () => {
+		let mockPeerConnection: any;
+
+		beforeEach(() => {
+			// Mock RTCPeerConnection and its getStats method
+			mockPeerConnection = {
+				getStats: jest.fn(),
+				iceConnectionState: "connected",
+			};
+		});
+
+		it("should start with null ping", () => {
+			expect(remoteNode.ping).toBeNull();
+		});
+
+		it("should start ping monitoring when node opens", () => {
+			const pingStartSpy = jest.spyOn(remoteNode as any, "_startPingMonitoring");
+			
+			// Add connection with peerConnection
+			mockConnection1.peerConnection = mockPeerConnection;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1._open = true;
+			mockConnection1.emit("open");
+
+			expect(pingStartSpy).toHaveBeenCalled();
+		});
+
+		it("should measure ping using RTCPeerConnection stats", async () => {
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.025, // 25ms
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			const pingSpy = jest.fn();
+			remoteNode.on("ping", pingSpy);
+
+			// Add connection and simulate it opening
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Wait for async ping measurement
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(mockPeerConnection.getStats).toHaveBeenCalled();
+			expect(pingSpy).toHaveBeenCalledWith(25);
+			expect(remoteNode.ping).toBe(25);
+		});
+
+		it("should average multiple RTT measurements", async () => {
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.020, // 20ms
+			});
+			mockStats.set("candidate-pair-2", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.030, // 30ms
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			const pingSpy = jest.fn();
+			remoteNode.on("ping", pingSpy);
+
+			// Add connection and simulate it opening
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Wait for async ping measurement
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(pingSpy).toHaveBeenCalledWith(25); // Average of 20 and 30
+			expect(remoteNode.ping).toBe(25);
+		});
+
+		it("should handle getStats errors gracefully", async () => {
+			mockPeerConnection.getStats.mockRejectedValue(new Error("Stats failed"));
+
+			const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+			const pingSpy = jest.fn();
+			remoteNode.on("ping", pingSpy);
+
+			// Add connection and simulate it opening
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Wait for async ping measurement
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(pingSpy).not.toHaveBeenCalled();
+			expect(remoteNode.ping).toBeNull();
+			
+			errorSpy.mockRestore();
+		});
+
+		it("should stop ping monitoring when node closes", () => {
+			jest.useFakeTimers();
+			const clearIntervalSpy = jest.spyOn(global, "clearInterval");
+
+			// Add connection and start monitoring
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Close the node
+			remoteNode.close();
+
+			expect(clearIntervalSpy).toHaveBeenCalled();
+
+			jest.useRealTimers();
+		});
+
+		it("should update ping periodically", async () => {
+			jest.useFakeTimers();
+			
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.025,
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			const pingSpy = jest.fn();
+			remoteNode.on("ping", pingSpy);
+
+			// Add connection and simulate it opening
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Initial ping
+			await Promise.resolve();
+			expect(pingSpy).toHaveBeenCalledTimes(1);
+
+			// Fast-forward 5 seconds
+			jest.advanceTimersByTime(5000);
+			await Promise.resolve();
+
+			// Should have measured ping again
+			expect(pingSpy).toHaveBeenCalledTimes(2);
+
+			// Clean up before switching back to real timers
+			remoteNode.close();
+			
+			jest.useRealTimers();
+		});
+
+	});
+
+	describe("ping monitoring edge cases", () => {
+		let mockPeerConnection: any;
+		let remoteNode: RemoteNode;
+		let meshClient: MeshClient;
+		let mockConnection1: MockDataConnection;
+		let mockConnection2: MockDataConnection;
+
+		beforeEach(() => {
+			// Mock RTCPeerConnection and its getStats method
+			mockPeerConnection = {
+				getStats: jest.fn(),
+				iceConnectionState: "connected",
+			};
+			
+			meshClient = new MeshClient();
+			remoteNode = new RemoteNode("remote-peer-id", meshClient, { test: "metadata" });
+			mockConnection1 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
+				connectionId: "conn1",
+			});
+			mockConnection2 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
+				connectionId: "conn2",
+			});
+		});
+
+		afterEach(() => {
+			// Don't close nodes here as they may not have started monitoring
+		});
+
+		it("should not measure ping if no open connections", async () => {
+			const pingSpy = jest.fn();
+			remoteNode.on("ping", pingSpy);
+
+			// Add connection but don't open it
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = false;
+			remoteNode._addConnection(mockConnection1 as any);
+
+			// Try to measure ping directly
+			await (remoteNode as any)._measurePing();
+
+			expect(mockPeerConnection.getStats).not.toHaveBeenCalled();
+			expect(pingSpy).not.toHaveBeenCalled();
+			expect(remoteNode.ping).toBeNull();
+		});
+
+		it("should use the first open connection with peerConnection for ping", async () => {
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.030,
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			// Add first connection without peerConnection
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+
+			// Add second connection with peerConnection
+			mockConnection2.peerConnection = mockPeerConnection;
+			mockConnection2._open = true;
+			remoteNode._addConnection(mockConnection2 as any);
+
+			// Trigger ping measurement directly without opening node
+			await (remoteNode as any)._measurePing();
+
+			expect(mockPeerConnection.getStats).toHaveBeenCalled();
+			expect(remoteNode.ping).toBe(30);
+		});
+
+		it("should ignore candidate pairs that are not succeeded", async () => {
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "failed",
+				currentRoundTripTime: 0.100,
+			});
+			mockStats.set("candidate-pair-2", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.020,
+			});
+			mockStats.set("candidate-pair-3", {
+				type: "candidate-pair",
+				state: "in-progress",
+				currentRoundTripTime: 0.050,
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			const pingSpy = jest.fn();
+			remoteNode.on("ping", pingSpy);
+
+			// Add connection but don't trigger node open to avoid starting monitoring
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+
+			// Measure ping directly
+			await (remoteNode as any)._measurePing();
+
+			// Should only use the succeeded candidate pair
+			expect(pingSpy).toHaveBeenCalledWith(20);
+			expect(remoteNode.ping).toBe(20);
+		});
+
+		it("should handle stats without RTT gracefully", async () => {
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "succeeded",
+				// No currentRoundTripTime property
+			});
+			mockStats.set("other-stat", {
+				type: "inbound-rtp",
+				// Other stat type
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			const pingSpy = jest.fn();
+			remoteNode.on("ping", pingSpy);
+
+			// Add connection but don't trigger node open to avoid starting monitoring
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+
+			// Measure ping directly
+			await (remoteNode as any)._measurePing();
+
+			// Should not emit ping if no valid RTT found
+			expect(pingSpy).not.toHaveBeenCalled();
+			expect(remoteNode.ping).toBeNull();
+		});
+
+		it("should not start duplicate ping monitoring", () => {
+			jest.useFakeTimers();
+			const setIntervalSpy = jest.spyOn(global, "setInterval");
+
+			// Start monitoring directly
+			(remoteNode as any)._startPingMonitoring();
+
+			const callCount = setIntervalSpy.mock.calls.length;
+
+			// Try to start monitoring again
+			(remoteNode as any)._startPingMonitoring();
+
+			// Should not create another interval
+			expect(setIntervalSpy).toHaveBeenCalledTimes(callCount);
+
+			// Clean up
+			(remoteNode as any)._stopPingMonitoring();
+
+			jest.useRealTimers();
 		});
 	});
 });

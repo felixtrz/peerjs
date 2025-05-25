@@ -33,3 +33,11 @@ console.log = (...args: any[]) => {
 //enable support for WebRTC
 util.supports.data = true;
 util.randomToken = () => "testToken";
+
+// Ensure global timer functions are available
+if (typeof global.setInterval === 'undefined') {
+	global.setInterval = setInterval;
+}
+if (typeof global.clearInterval === 'undefined') {
+	global.clearInterval = clearInterval;
+}
