@@ -3,6 +3,22 @@ import "webrtc-adapter";
 
 const fakeGlobals = {
 	WebSocket,
+	RTCSessionDescription: class RTCSessionDescription {
+		type: RTCSdpType;
+		sdp: string;
+		
+		constructor(init?: RTCSessionDescriptionInit) {
+			this.type = init?.type || "offer";
+			this.sdp = init?.sdp || "";
+		}
+		
+		toJSON(): RTCSessionDescriptionInit {
+			return {
+				type: this.type,
+				sdp: this.sdp,
+			};
+		}
+	},
 	MediaStream: class MediaStream {
 		private readonly _tracks: MediaStreamTrack[] = [];
 
@@ -32,8 +48,88 @@ const fakeGlobals = {
 	},
 	RTCPeerConnection: class RTCPeerConnection {
 		private _senders: RTCRtpSender[] = [];
+		localDescription: RTCSessionDescription | null = null;
+		remoteDescription: RTCSessionDescription | null = null;
+		signalingState: RTCSignalingState = "stable";
+		iceConnectionState: RTCIceConnectionState = "new";
+		iceGatheringState: RTCIceGatheringState = "new";
+		connectionState: RTCPeerConnectionState = "new";
+		onicecandidate: ((event: RTCPeerConnectionIceEvent) => void) | null = null;
+		ondatachannel: ((event: RTCDataChannelEvent) => void) | null = null;
+		onicecandidateerror: ((event: RTCPeerConnectionIceErrorEvent) => void) | null = null;
+		onconnectionstatechange: ((event: Event) => void) | null = null;
+		oniceconnectionstatechange: ((event: Event) => void) | null = null;
+		onicegatheringstatechange: ((event: Event) => void) | null = null;
+		onnegotiationneeded: ((event: Event) => void) | null = null;
+		onsignalingstatechange: ((event: Event) => void) | null = null;
 
-		close() {}
+		constructor(configuration?: RTCConfiguration) {
+			// Mock implementation
+		}
+
+		close() {
+			this.iceConnectionState = "closed";
+			this.connectionState = "closed";
+			this.signalingState = "closed";
+		}
+
+		createDataChannel(label: string, options?: RTCDataChannelInit): RTCDataChannel {
+			return {
+				label,
+				id: Math.floor(Math.random() * 65535),
+				ordered: true,
+				maxPacketLifeTime: null,
+				maxRetransmits: null,
+				protocol: "",
+				negotiated: false,
+				readyState: "connecting" as RTCDataChannelState,
+				bufferedAmount: 0,
+				bufferedAmountLowThreshold: 0,
+				binaryType: "arraybuffer" as BinaryType,
+				onopen: null,
+				onbufferedamountlow: null,
+				onerror: null,
+				onclose: null,
+				onmessage: null,
+				send: jest.fn(),
+				close: jest.fn(),
+				addEventListener: jest.fn(),
+				removeEventListener: jest.fn(),
+				dispatchEvent: jest.fn(),
+			} as unknown as RTCDataChannel;
+		}
+
+		createOffer(options?: RTCOfferOptions): Promise<RTCSessionDescriptionInit> {
+			return Promise.resolve({
+				type: "offer",
+				sdp: "mock-sdp-offer",
+			});
+		}
+
+		createAnswer(options?: RTCAnswerOptions): Promise<RTCSessionDescriptionInit> {
+			return Promise.resolve({
+				type: "answer",
+				sdp: "mock-sdp-answer",
+			});
+		}
+
+		setLocalDescription(description?: RTCLocalSessionDescriptionInit): Promise<void> {
+			this.localDescription = description as RTCSessionDescription;
+			return Promise.resolve();
+		}
+
+		setRemoteDescription(description: RTCSessionDescriptionInit): Promise<void> {
+			this.remoteDescription = description as RTCSessionDescription;
+			return Promise.resolve();
+		}
+
+		addIceCandidate(candidate?: RTCIceCandidateInit): Promise<void> {
+			return Promise.resolve();
+		}
+
+		getStats(selector?: MediaStreamTrack | null): Promise<RTCStatsReport> {
+			return Promise.resolve(new Map() as RTCStatsReport);
+		}
 
 		addTrack(track: MediaStreamTrack, ..._stream: MediaStream[]): RTCRtpSender {
 			const newSender = new RTCRtpSender();

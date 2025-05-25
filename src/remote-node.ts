@@ -114,6 +114,11 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 
 		// Set up event handlers for this connection
 		connection.on("data", (data) => {
+			// Filter out internal mesh networking messages
+			if (this._isInternalMeshMessage(data)) {
+				this._handleInternalMeshMessage(data);
+				return;
+			}
 			this.emit("data", data);
 		});
 
@@ -312,6 +317,26 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	 */
 	_cleanupLostMessages(connectionId: string): void {
 		this._lostMessages.delete(connectionId);
+	}
+
+	/**
+	 * Check if a message is an internal mesh networking message
+	 * @internal
+	 */
+	private _isInternalMeshMessage(data: any): boolean {
+		return data && 
+			typeof data === "object" && 
+			data.__peerJSInternal === true &&
+			(data.type === "mesh-peers" || data.type === "mesh-peers-ack");
+	}
+
+	/**
+	 * Handle internal mesh networking messages
+	 * @internal
+	 */
+	private _handleInternalMeshMessage(data: any): void {
+		// Emit a special internal event that MeshClient can listen to
+		this.emit("_internal_mesh_message" as any, data);
 	}
 
 	/**

@@ -3,9 +3,6 @@ import { MeshClient } from "peerjs";
 const mesh = new MeshClient();
 window.mesh = mesh;
 
-// Keep track of connected nodes
-const connectedNodes = new Map();
-
 // Helper function to create message elements
 const createNewMessage = (sender, message) => {
 	const newMessage = document.createElement("div");
@@ -26,6 +23,10 @@ const createNewMessage = (sender, message) => {
 mesh.on("open", (id) => {
 	document.getElementById("my-id").innerHTML = id;
 	createNewMessage("Me", "Connected to server with ID: " + id);
+	createNewMessage(
+		"System",
+		"Mesh networking is " + (mesh.meshEnabled ? "enabled" : "disabled"),
+	);
 });
 
 // Copy ID to clipboard on click
@@ -38,8 +39,7 @@ document.getElementById("my-id").addEventListener("click", () => {
 // Handle incoming connections
 mesh.on("connection", (node) => {
 	console.log("New connection from:", node.peer);
-	connectedNodes.set(node.peer, node);
-	createNewMessage(node.peer, "joined");
+	createNewMessage(node.peer, "joined (mesh will auto-connect to their peers)");
 
 	// Listen for data from this node
 	node.on("data", (data) => {
@@ -49,7 +49,6 @@ mesh.on("connection", (node) => {
 
 	// Handle node closing
 	node.on("close", () => {
-		connectedNodes.delete(node.peer);
 		createNewMessage(node.peer, "left");
 	});
 
@@ -76,7 +75,6 @@ document.getElementById("connect").addEventListener("click", () => {
 	if (peerId) {
 		console.log("Connecting to:", peerId);
 		const node = mesh.connect(peerId);
-		connectedNodes.set(node.peer, node);
 
 		// Set up event handlers for outgoing connection
 		node.on("open", () => {
@@ -89,7 +87,6 @@ document.getElementById("connect").addEventListener("click", () => {
 		});
 
 		node.on("close", () => {
-			connectedNodes.delete(node.peer);
 			createNewMessage(node.peer, "disconnected");
 		});
 
@@ -103,12 +100,9 @@ document.getElementById("connect").addEventListener("click", () => {
 document.getElementById("send").addEventListener("click", () => {
 	const message = document.getElementById("message").value;
 	if (message) {
-		// Send to all connected nodes
-		for (const [peerId, node] of connectedNodes) {
-			if (node.open) {
-				node.send(message);
-			}
-		}
+		// Use broadcast to send to all connected nodes
+		const sentCount = mesh.broadcast(message);
+		console.log(`Message broadcasted to ${sentCount} peers`);
 		createNewMessage("Me", message);
 		document.getElementById("message").value = "";
 	}

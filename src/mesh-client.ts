@@ -16,7 +16,10 @@ import { BinaryPack } from "./p2p/buffered-connection/binary-pack";
 import { Raw } from "./p2p/buffered-connection/raw";
 import { Json } from "./p2p/buffered-connection/json";
 
-import { EventEmitterWithError, MeshClientError } from "./p2p/mesh-client-error";
+import {
+	EventEmitterWithError,
+	MeshClientError,
+} from "./p2p/mesh-client-error";
 
 class MeshClientOptions implements MeshClientJSOption {
 	/**
@@ -106,7 +109,10 @@ export interface MeshClientEvents {
 /**
  * A peer who can initiate connections with other peers.
  */
-export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshClientEvents> {
+export class MeshClient extends EventEmitterWithError<
+	MeshClientErrorType,
+	MeshClientEvents
+> {
 	private static readonly DEFAULT_KEY = "peerjs";
 
 	protected readonly _serializers: SerializerMapping = {
@@ -130,6 +136,15 @@ export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshC
 	private _open = false; // Sockets and such are not yet open.
 	private readonly _remoteNodes: Map<string, RemoteNode> = new Map(); // All nodes for this peer.
 	private readonly _lostMessages: Map<string, ServerMessage[]> = new Map(); // src => [list of messages]
+
+	// Mesh networking
+	private readonly _connectionAttempts: Set<string> = new Set(); // Track connection attempts to prevent duplicates
+	private readonly _meshHandshakes: Map<
+		string,
+		{ sent: boolean; received: boolean; retryCount: number; retryTimeout?: any }
+	> = new Map(); // Track mesh handshakes
+	private static readonly MESH_HANDSHAKE_MAX_RETRIES = 3;
+	private static readonly MESH_HANDSHAKE_RETRY_DELAY = 1000; // 1 second
 	/**
 	 * The brokering ID of this peer
 	 *
@@ -275,7 +290,10 @@ export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshC
 
 		// Ensure alphanumeric id
 		if (!!userId && !util.validateId(userId)) {
-			this._delayedAbort(MeshClientErrorType.InvalidID, `ID "${userId}" is invalid`);
+			this._delayedAbort(
+				MeshClientErrorType.InvalidID,
+				`ID "${userId}" is invalid`,
+			);
 			return;
 		}
 
@@ -352,7 +370,10 @@ export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshC
 				this._abort(MeshClientErrorType.ServerError, payload.msg);
 				break;
 			case ServerMessageType.IdTaken: // The selected ID is taken.
-				this._abort(MeshClientErrorType.UnavailableID, `ID "${this.id}" is taken`);
+				this._abort(
+					MeshClientErrorType.UnavailableID,
+					`ID "${this.id}" is taken`,
+				);
 				break;
 			case ServerMessageType.InvalidKey: // The given API key cannot be found.
 				this._abort(
@@ -390,6 +411,10 @@ export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshC
 					if (!node) {
 						node = new RemoteNode(peerId, this, payload.metadata);
 						this._remoteNodes.set(peerId, node);
+
+						// Set up mesh networking for incoming connections
+						this._handleMeshNetworking(node);
+
 						this.emit("connection", node);
 
 						// Transfer any existing lost messages from peer to node
@@ -503,11 +528,23 @@ export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshC
 			return;
 		}
 
+		// Prevent duplicate connection attempts
+		if (this._connectionAttempts.has(peer)) {
+			logger.warn(`Connection attempt to ${peer} already in progress`);
+			return;
+		}
+
+		// Mark this peer as being attempted
+		this._connectionAttempts.add(peer);
+
 		// Get or create node for this peer
 		let node: RemoteNode | undefined = this._remoteNodes.get(peer);
 		if (!node) {
 			node = new RemoteNode(peer, this, options.metadata);
 			this._remoteNodes.set(peer, node);
+
+			// Set up mesh networking for this node
+			this._handleMeshNetworking(node);
 		}
 
 		// Create data connection
@@ -518,6 +555,24 @@ export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshC
 			options,
 		);
 		node._addConnection(dataConnection);
+
+		// Clean up connection attempts when the node closes or errors
+		const cleanupAttempt = () => {
+			this._connectionAttempts.delete(peer);
+		};
+
+		// Set up one-time listeners for cleanup
+		const setupCleanup = () => {
+			node.once("close", cleanupAttempt);
+			node.once("error", cleanupAttempt);
+			// Also clean up when connection succeeds
+			node.once("open", cleanupAttempt);
+		};
+
+		// Only set up cleanup if this is the first connection to this node
+		if (!node.open && node.connectionCount === 1) {
+			setupCleanup();
+		}
 
 		return node;
 	}
@@ -530,6 +585,14 @@ export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshC
 	/** Remove a node from this peer. */
 	_removeNode(node: RemoteNode): void {
 		this._remoteNodes.delete(node.peer);
+		// Clean up connection attempts tracking
+		this._connectionAttempts.delete(node.peer);
+		// Clean up mesh handshake tracking
+		const handshake = this._meshHandshakes.get(node.peer);
+		if (handshake?.retryTimeout) {
+			clearTimeout(handshake.retryTimeout);
+		}
+		this._meshHandshakes.delete(node.peer);
 	}
 
 	/** Get a node for a specific peer ID. */
@@ -537,7 +600,208 @@ export class MeshClient extends EventEmitterWithError<MeshClientErrorType, MeshC
 		return this._remoteNodes.get(peerId);
 	}
 
-	private _delayedAbort(type: MeshClientErrorType, message: string | Error): void {
+	/**
+	 * Broadcasts data to all connected nodes.
+	 * @param data The data to send to all connected peers
+	 * @returns The number of nodes the data was sent to
+	 */
+	broadcast(data: any): number {
+		let sentCount = 0;
+
+		for (const [peerId, node] of this._remoteNodes) {
+			if (node.open) {
+				try {
+					node.send(data);
+					sentCount++;
+				} catch (error) {
+					logger.warn(`Failed to send broadcast to ${peerId}:`, error);
+				}
+			}
+		}
+
+		return sentCount;
+	}
+
+	/** Get list of all connected peer IDs for mesh networking */
+	private _getConnectedPeerIds(): string[] {
+		const peerIds: string[] = [];
+		for (const [peerId, node] of this._remoteNodes) {
+			if (node.open) {
+				peerIds.push(peerId);
+			}
+		}
+		return peerIds;
+	}
+
+	/** Handle mesh networking when a node connects */
+	private _handleMeshNetworking(node: RemoteNode): void {
+		// Initialize handshake tracking
+		const handshakeInfo = {
+			sent: false,
+			received: false,
+			retryCount: 0,
+			retryTimeout: undefined as any,
+		};
+		this._meshHandshakes.set(node.peer, handshakeInfo);
+
+		// When a node opens, start the handshake process
+		node.on("open", () => {
+			this._sendMeshHandshake(node);
+		});
+
+		// Handle incoming mesh messages using internal event
+		node.on("_internal_mesh_message" as any, (data: any) => {
+			if (data && typeof data === "object") {
+				switch (data.type) {
+					case "mesh-peers":
+						this._handleMeshPeers(node, data);
+						break;
+					case "mesh-peers-ack":
+						this._handleMeshAck(node, data);
+						break;
+				}
+			}
+		});
+
+		// Clean up on close
+		node.on("close", () => {
+			const handshake = this._meshHandshakes.get(node.peer);
+			if (handshake?.retryTimeout) {
+				clearTimeout(handshake.retryTimeout);
+			}
+			this._meshHandshakes.delete(node.peer);
+		});
+	}
+
+	/** Send mesh handshake with retry logic */
+	private _sendMeshHandshake(node: RemoteNode): void {
+		const handshake = this._meshHandshakes.get(node.peer);
+		if (!handshake || handshake.sent) return;
+
+		const myPeers = this._getConnectedPeerIds().filter(
+			(id) => id !== node.peer,
+		);
+
+		// Always send the handshake, even with empty peer list
+		const message = {
+			__peerJSInternal: true,
+			type: "mesh-peers",
+			peers: myPeers,
+			timestamp: Date.now(),
+			requiresAck: true,
+		};
+
+		try {
+			node.send(message);
+			handshake.sent = true;
+			logger.log(
+				`Sent mesh handshake to ${node.peer} with ${myPeers.length} peers`,
+			);
+
+			// Set up retry if we don't receive an ack
+			if (
+				!handshake.received &&
+				handshake.retryCount < MeshClient.MESH_HANDSHAKE_MAX_RETRIES
+			) {
+				handshake.retryTimeout = setTimeout(
+					() => {
+						handshake.retryCount++;
+						handshake.sent = false;
+						logger.log(
+							`Retrying mesh handshake to ${node.peer} (attempt ${handshake.retryCount})`,
+						);
+						this._sendMeshHandshake(node);
+					},
+					MeshClient.MESH_HANDSHAKE_RETRY_DELAY *
+						Math.pow(2, handshake.retryCount),
+				); // Exponential backoff
+			}
+		} catch (error) {
+			logger.warn(`Failed to send mesh handshake to ${node.peer}:`, error);
+		}
+	}
+
+	/** Handle incoming mesh peers message */
+	private _handleMeshPeers(node: RemoteNode, data: any): void {
+		const handshake = this._meshHandshakes.get(node.peer);
+		if (!handshake) return;
+
+		// Mark that we received their list
+		handshake.received = true;
+
+		// Send acknowledgment if requested
+		if (data.requiresAck) {
+			try {
+				node.send({
+					__peerJSInternal: true,
+					type: "mesh-peers-ack",
+					timestamp: data.timestamp,
+				});
+				logger.log(`Sent mesh-peers-ack to ${node.peer}`);
+			} catch (error) {
+				logger.warn(`Failed to send mesh-peers-ack to ${node.peer}:`, error);
+			}
+		}
+
+		// Process the peer list
+		const peerList = data.peers;
+		if (Array.isArray(peerList)) {
+			logger.log(`Received peer list from ${node.peer}:`, peerList);
+			this._connectToMeshPeers(peerList);
+		}
+
+		// If we haven't sent our list yet, send it now
+		if (!handshake.sent) {
+			this._sendMeshHandshake(node);
+		}
+	}
+
+	/** Handle mesh acknowledgment */
+	private _handleMeshAck(node: RemoteNode, _data: any): void {
+		const handshake = this._meshHandshakes.get(node.peer);
+		if (!handshake) return;
+
+		// Clear retry timeout
+		if (handshake.retryTimeout) {
+			clearTimeout(handshake.retryTimeout);
+			handshake.retryTimeout = undefined;
+		}
+
+		logger.log(`Received mesh-peers-ack from ${node.peer}`);
+	}
+
+	/** Connect to a list of peers for mesh networking */
+	private _connectToMeshPeers(peerIds: string[]): void {
+		for (const peerId of peerIds) {
+			// Skip if it's our own ID
+			if (peerId === this.id) continue;
+
+			// Skip if we already have a connection or attempt in progress
+			if (
+				this._remoteNodes.has(peerId) ||
+				this._connectionAttempts.has(peerId)
+			) {
+				continue;
+			}
+
+			logger.log(`Connecting to mesh peer ${peerId}`);
+
+			// Attempt connection - connect() will handle marking as attempted
+			try {
+				this.connect(peerId);
+			} catch (error) {
+				logger.warn(`Failed to connect to mesh peer ${peerId}:`, error);
+				// If connection failed, it should have been cleaned up by connect()
+				// but just in case, remove it from attempts
+				this._connectionAttempts.delete(peerId);
+			}
+		}
+	}
+
+	private _delayedAbort(
+		type: MeshClientErrorType,
+		message: string | Error,
+	): void {
 		setTimeout(() => {
 			this._abort(type, message);
 		}, 0);
