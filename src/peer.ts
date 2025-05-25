@@ -1,22 +1,22 @@
-import { util } from "./util";
-import logger, { LogLevel } from "./logger";
-import { Socket } from "./socket";
-import type { DataConnection } from "./dataconnection/DataConnection";
+import { util } from "./utils/utils";
+import logger, { LogLevel } from "./utils/logger";
+import { Socket } from "./server/socket";
+import type { DataConnection } from "./p2p/data-connection";
 import { Node } from "./node";
 import {
 	ConnectionType,
 	PeerErrorType,
 	ServerMessageType,
 	SocketEventType,
-} from "./enums";
-import type { ServerMessage } from "./servermessage";
-import { API } from "./api";
-import type { PeerConnectOption, PeerJSOption } from "./optionInterfaces";
-import { BinaryPack } from "./dataconnection/BufferedConnection/BinaryPack";
-import { Raw } from "./dataconnection/BufferedConnection/Raw";
-import { Json } from "./dataconnection/BufferedConnection/Json";
+} from "./utils/enums";
+import type { ServerMessage } from "./server/server-message";
+import { API } from "./server/api";
+import type { PeerConnectOption, PeerJSOption } from "./options";
+import { BinaryPack } from "./p2p/buffered-connection/binary-pack";
+import { Raw } from "./p2p/buffered-connection/raw";
+import { Json } from "./p2p/buffered-connection/json";
 
-import { EventEmitterWithError, PeerError } from "./peerError";
+import { EventEmitterWithError, PeerError } from "./p2p/peer-error";
 
 class PeerOptions implements PeerJSOption {
 	/**
@@ -391,7 +391,7 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 						node = new Node(peerId, this, payload.metadata);
 						this._nodes.set(peerId, node);
 						this.emit("connection", node);
-						
+
 						// Transfer any existing lost messages from peer to node
 						const peerLostMessages = this._getMessages(connectionId);
 						for (const msg of peerLostMessages) {
@@ -419,7 +419,6 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 					logger.warn(`Received malformed connection type:${payload.type}`);
 					return;
 				}
-
 
 				break;
 			}
@@ -527,7 +526,6 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 	_cleanupLostMessages(connectionId: string): void {
 		this._lostMessages.delete(connectionId);
 	}
-
 
 	/** Remove a node from this peer. */
 	_removeNode(node: Node): void {

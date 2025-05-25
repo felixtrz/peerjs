@@ -1,6 +1,6 @@
 import "./setup";
-import { Node } from "../lib/node";
-import { Peer } from "../lib/peer";
+import { Node } from "../src/node";
+import { Peer } from "../src/peer";
 import { EventEmitter } from "events";
 import { expect, beforeEach, describe, it, jest } from "@jest/globals";
 

@@ -1,5 +1,5 @@
 /**
- * @type {typeof import("../../lib/exports.js").Peer}
+ * @type {typeof import("../../src/index.js").Peer}
  */
 const Peer = window.peerjs.Peer;
 
@@ -29,7 +29,7 @@ const serialization = params.get("serialization");
 	});
 	const received = [];
 	/**
-	 * @type {import("../../lib/exports.js").Node}
+	 * @type {import("../../src/index.js").Node}
 	 */
 	let node;
 	peer

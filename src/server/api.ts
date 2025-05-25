@@ -1,7 +1,7 @@
-import { util } from "./util";
-import logger from "./logger";
-import type { PeerJSOption } from "./optionInterfaces";
-import { version } from "../package.json";
+import { util } from "../utils/utils";
+import logger from "../utils/logger";
+import type { PeerJSOption } from "../options";
+import { version } from "../../package.json";
 
 export class API {
 	constructor(private readonly _options: PeerJSOption) {}

@@ -1,8 +1,8 @@
 import "./setup";
-import { Peer } from "../lib/peer";
-import { Node } from "../lib/node";
+import { Peer } from "../src/peer";
+import { Node } from "../src/node";
 import { Server } from "mock-socket";
-import { PeerErrorType, ServerMessageType } from "../lib/enums";
+import { PeerErrorType, ServerMessageType } from "../src/utils/enums";
 import { expect, beforeAll, afterAll, describe, it, jest } from "@jest/globals";
 
 const createMockServer = (): Server => {

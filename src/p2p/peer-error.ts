@@ -1,5 +1,5 @@
 import { EventEmitter } from "eventemitter3";
-import logger from "./logger";
+import logger from "../utils/logger";
 
 export interface EventsWithError<ErrorType extends string> {
 	error: (error: PeerError<`${ErrorType}`>) => void;

@@ -1,11 +1,11 @@
-import logger from "./logger";
-import type { DataConnection } from "./dataconnection/DataConnection";
+import logger from "../utils/logger";
+import type { DataConnection } from "./data-connection";
 import {
 	BaseConnectionErrorType,
 	ConnectionType,
 	PeerErrorType,
 	ServerMessageType,
-} from "./enums";
+} from "../utils/enums";
 
 /**
  * Manages all negotiations between Peers.
@@ -127,9 +127,7 @@ export class Negotiator<Connection extends DataConnection> {
 
 			const dataChannel = evt.channel;
 			const node = provider.getNode(peerId);
-			const connection = <DataConnection>(
-				node?.getConnection(connectionId)
-			);
+			const connection = <DataConnection>node?.getConnection(connectionId);
 
 			connection._initializeDataChannel(dataChannel);
 		};
@@ -313,6 +311,4 @@ export class Negotiator<Connection extends DataConnection> {
 			logger.log("Failed to handleCandidate, ", err);
 		}
 	}
-
-	// Media-specific methods removed as we only support DataConnection now
 }

@@ -1,4 +1,4 @@
-import Logger, { LogLevel } from "../lib/logger";
+import Logger, { LogLevel } from "../src/utils/logger";
 import { expect, beforeAll, afterAll, describe, it } from "@jest/globals";
 
 describe("Logger", () => {

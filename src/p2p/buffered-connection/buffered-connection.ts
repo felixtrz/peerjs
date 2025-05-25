@@ -1,5 +1,5 @@
-import logger from "../../logger";
-import { DataConnection } from "../DataConnection";
+import logger from "../../utils/logger";
+import { DataConnection } from "../data-connection";
 
 export abstract class BufferedConnection extends DataConnection {
 	private _buffer: any[] = [];

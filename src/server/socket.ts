@@ -1,7 +1,7 @@
 import { EventEmitter } from "eventemitter3";
-import logger from "./logger";
-import { ServerMessageType, SocketEventType } from "./enums";
-import { version } from "../package.json";
+import logger from "../utils/logger";
+import { ServerMessageType, SocketEventType } from "../utils/enums";
+import { version } from "../../package.json";
 
 /**
  * An abstraction on top of WebSockets to provide fastest

@@ -1,20 +1,20 @@
-import logger from "../logger";
-import { Negotiator } from "../negotiator";
+import logger from "../utils/logger";
+import { Negotiator } from "./negotiator";
 import {
 	BaseConnectionErrorType,
 	ConnectionType,
 	DataConnectionErrorType,
 	ServerMessageType,
-} from "../enums";
+} from "../utils/enums";
 import type { Peer } from "../peer";
 import type { Node } from "../node";
-import type { ServerMessage } from "../servermessage";
+import type { ServerMessage } from "../server/server-message";
 import {
 	EventEmitterWithError,
 	type EventsWithError,
 	PeerError,
-} from "../peerError";
-import { randomToken } from "../utils/randomToken";
+} from "./peer-error";
+import { randomToken } from "../utils/utils";
 
 export interface BaseConnectionEvents<
 	ErrorType extends string = BaseConnectionErrorType,

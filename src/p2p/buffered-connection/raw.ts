@@ -1,5 +1,5 @@
-import { BufferedConnection } from "./BufferedConnection";
-import { SerializationType } from "../../enums";
+import { BufferedConnection } from "./buffered-connection";
+import { SerializationType } from "../../utils/enums";
 
 export class Raw extends BufferedConnection {
 	readonly serialization = SerializationType.None;

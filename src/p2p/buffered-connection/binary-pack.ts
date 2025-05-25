@@ -1,9 +1,9 @@
-import { BinaryPackChunker, concatArrayBuffers } from "./binaryPackChunker";
-import logger from "../../logger";
+import { BinaryPackChunker, concatArrayBuffers } from "./binary-pack-chunker";
+import logger from "../../utils/logger";
 import type { Peer } from "../../peer";
 import type { Node } from "../../node";
-import { BufferedConnection } from "./BufferedConnection";
-import { SerializationType } from "../../enums";
+import { BufferedConnection } from "./buffered-connection";
+import { SerializationType } from "../../utils/enums";
 import { pack, type Packable, unpack } from "peerjs-js-binarypack";
 
 export class BinaryPack extends BufferedConnection {

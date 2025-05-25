@@ -100,8 +100,8 @@
 		"dist/*"
 	],
 	"sideEffects": [
-		"lib/global.ts",
-		"lib/supports.ts"
+		"src/global.ts",
+		"src/utils/supports.ts"
 	],
 	"main": "dist/bundler.cjs",
 	"module": "dist/bundler.mjs",
@@ -113,16 +113,16 @@
 	},
 	"targets": {
 		"types": {
-			"source": "lib/exports.ts"
+			"source": "src/index.ts"
 		},
 		"main": {
-			"source": "lib/exports.ts",
+			"source": "src/index.ts",
 			"sourceMap": {
 				"inlineSources": true
 			}
 		},
 		"module": {
-			"source": "lib/exports.ts",
+			"source": "src/index.ts",
 			"includeNodeModules": [
 				"eventemitter3"
 			],
@@ -137,7 +137,7 @@
 			"engines": {
 				"browsers": "chrome >= 83, edge >= 83, firefox >= 80, safari >= 15"
 			},
-			"source": "lib/global.ts"
+			"source": "src/global.ts"
 		},
 		"browser-unminified": {
 			"context": "browser",
@@ -146,7 +146,7 @@
 			"engines": {
 				"browsers": "chrome >= 83, edge >= 83, firefox >= 80, safari >= 15"
 			},
-			"source": "lib/global.ts"
+			"source": "src/global.ts"
 		}
 	},
 	"scripts": {
@@ -157,7 +157,7 @@
 		"prepublishOnly": "npm run build",
 		"test": "jest",
 		"test:watch": "jest --watch",
-		"coverage": "jest --coverage --collectCoverageFrom=\"./lib/**\"",
+		"coverage": "jest --coverage --collectCoverageFrom=\"./src/**\"",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"semantic-release": "semantic-release",

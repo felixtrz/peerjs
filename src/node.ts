@@ -1,8 +1,8 @@
-import { EventEmitterWithError, type EventsWithError } from "./peerError";
-import type { DataConnection } from "./dataconnection/DataConnection";
+import { EventEmitterWithError, type EventsWithError } from "./p2p/peer-error";
+import type { DataConnection } from "./p2p/data-connection";
 import type { Peer } from "./peer";
-import type { ServerMessage } from "./servermessage";
-import logger from "./logger";
+import type { ServerMessage } from "./server/server-message";
+import logger from "./utils/logger";
 
 export interface NodeEvents extends EventsWithError<string> {
 	/**
@@ -90,7 +90,9 @@ export class Node extends EventEmitterWithError<string, NodeEvents> {
 			(conn) => conn.connectionId === connection.connectionId,
 		);
 		if (existingConnection) {
-			logger.log(`Connection ${connection.connectionId} already exists in node ${this.peer}`);
+			logger.log(
+				`Connection ${connection.connectionId} already exists in node ${this.peer}`,
+			);
 			return;
 		}
 
@@ -177,16 +179,22 @@ export class Node extends EventEmitterWithError<string, NodeEvents> {
 			// Wait a bit before deduplicating to allow messages to be received
 			setTimeout(() => {
 				// Re-check in case connections have changed
-				const currentOpenConnections = this._connections.filter((conn) => conn.open);
+				const currentOpenConnections = this._connections.filter(
+					(conn) => conn.open,
+				);
 				if (currentOpenConnections.length <= 1) {
 					return;
 				}
-				
-				logger.log(`Deduplicating connections for node ${this.peer}. Keeping one, closing ${currentOpenConnections.length - 1}`);
-				
+
+				logger.log(
+					`Deduplicating connections for node ${this.peer}. Keeping one, closing ${currentOpenConnections.length - 1}`,
+				);
+
 				// Sort connections by connectionId to ensure both peers keep the same one
-				currentOpenConnections.sort((a, b) => a.connectionId.localeCompare(b.connectionId));
-				
+				currentOpenConnections.sort((a, b) =>
+					a.connectionId.localeCompare(b.connectionId),
+				);
+
 				// Keep the first connection, close the rest
 				for (let i = 1; i < currentOpenConnections.length; i++) {
 					currentOpenConnections[i].close();

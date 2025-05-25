@@ -1,5 +1,5 @@
 import "./setup";
-import { util } from "../lib/util";
+import { util } from "../src/utils/utils";
 import { expect, describe, it } from "@jest/globals";
 
 describe("util", () => {

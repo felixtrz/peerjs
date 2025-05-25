@@ -1,8 +1,13 @@
-import { BinaryPackChunker } from "./dataconnection/BufferedConnection/binaryPackChunker";
+import { BinaryPackChunker } from "../p2p/buffered-connection/binary-pack-chunker";
 import * as BinaryPack from "peerjs-js-binarypack";
 import { Supports } from "./supports";
-import { validateId } from "./utils/validateId";
-import { randomToken } from "./utils/randomToken";
+
+export const randomToken = () => Math.random().toString(36).slice(2);
+
+const validateId = (id: string): boolean => {
+	// Allow empty ids
+	return !id || /^[A-Za-z0-9]+(?:[ _-][A-Za-z0-9]+)*$/.test(id);
+};
 
 export interface UtilSupportsObj {
 	/**

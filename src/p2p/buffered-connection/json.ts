@@ -1,6 +1,6 @@
-import { BufferedConnection } from "./BufferedConnection";
-import { DataConnectionErrorType, SerializationType } from "../../enums";
-import { util } from "../../util";
+import { BufferedConnection } from "./buffered-connection";
+import { DataConnectionErrorType, SerializationType } from "../../utils/enums";
+import { util } from "../../utils/utils";
 
 export class Json extends BufferedConnection {
 	readonly serialization = SerializationType.JSON;
