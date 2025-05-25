@@ -3,7 +3,7 @@ import type { DataConnection } from "./data-connection";
 import {
 	BaseConnectionErrorType,
 	ConnectionType,
-	PeerErrorType,
+	MeshClientErrorType,
 	ServerMessageType,
 } from "../utils/enums";
 
@@ -223,12 +223,12 @@ export class Negotiator<Connection extends DataConnection> {
 					err !=
 					"OperationError: Failed to set local offer sdp: Called in wrong state: kHaveRemoteOffer"
 				) {
-					provider.emitError(PeerErrorType.WebRTC, err);
+					provider.emitError(MeshClientErrorType.WebRTC, err);
 					logger.log("Failed to setLocalDescription, ", err);
 				}
 			}
 		} catch (err_1) {
-			provider.emitError(PeerErrorType.WebRTC, err_1);
+			provider.emitError(MeshClientErrorType.WebRTC, err_1);
 			logger.log("Failed to createOffer, ", err_1);
 		}
 	}
@@ -268,11 +268,11 @@ export class Negotiator<Connection extends DataConnection> {
 					dst: this.connection.peer,
 				});
 			} catch (err) {
-				provider.emitError(PeerErrorType.WebRTC, err);
+				provider.emitError(MeshClientErrorType.WebRTC, err);
 				logger.log("Failed to setLocalDescription, ", err);
 			}
 		} catch (err_1) {
-			provider.emitError(PeerErrorType.WebRTC, err_1);
+			provider.emitError(MeshClientErrorType.WebRTC, err_1);
 			logger.log("Failed to create answer, ", err_1);
 		}
 	}
@@ -294,7 +294,7 @@ export class Negotiator<Connection extends DataConnection> {
 				await self._makeAnswer();
 			}
 		} catch (err) {
-			provider.emitError(PeerErrorType.WebRTC, err);
+			provider.emitError(MeshClientErrorType.WebRTC, err);
 			logger.log("Failed to setRemoteDescription, ", err);
 		}
 	}
@@ -307,7 +307,7 @@ export class Negotiator<Connection extends DataConnection> {
 			await this.connection.peerConnection.addIceCandidate(ice);
 			logger.log(`Added ICE candidate for:${this.connection.peer}`);
 		} catch (err) {
-			this.connection.provider.emitError(PeerErrorType.WebRTC, err);
+			this.connection.provider.emitError(MeshClientErrorType.WebRTC, err);
 			logger.log("Failed to handleCandidate, ", err);
 		}
 	}

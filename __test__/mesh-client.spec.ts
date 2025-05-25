@@ -1,8 +1,7 @@
 import "./setup";
-import { Peer } from "../src/peer";
-import { Node } from "../src/node";
+import { MeshClient } from "../src/mesh-client";
 import { Server } from "mock-socket";
-import { PeerErrorType, ServerMessageType } from "../src/utils/enums";
+import { MeshClientErrorType, ServerMessageType } from "../src/utils/enums";
 import { expect, beforeAll, afterAll, describe, it, jest } from "@jest/globals";
 
 const createMockServer = (): Server => {
@@ -23,10 +22,10 @@ const createMockServer = (): Server => {
 describe("Peer", () => {
 	describe("after construct without parameters", () => {
 		it("shouldn't contains any connection", () => {
-			const peer = new Peer();
+			const peer = new MeshClient();
 
 			expect(peer.open).toBe(false);
-			expect(peer.nodes).toEqual({});
+			expect((peer as any)._remoteNodes).toEqual(new Map());
 			expect(peer.id).toBeNull();
 			expect(peer.disconnected).toBe(false);
 			expect(peer.destroyed).toBe(false);
@@ -37,7 +36,7 @@ describe("Peer", () => {
 
 	describe("after construct with parameters", () => {
 		it("should contains id and key", () => {
-			const peer = new Peer("1", { key: "anotherKey" });
+			const peer = new MeshClient("1", { key: "anotherKey" });
 
 			expect(peer.id).toBe("1");
 			expect(peer.options.key).toBe("anotherKey");
@@ -54,7 +53,7 @@ describe("Peer", () => {
 		});
 
 		it("connect to server => disconnect => reconnect => destroy", (done) => {
-			const peer1 = new Peer("1", { port: 8080, host: "localhost" });
+			const peer1 = new MeshClient("1", { port: 8080, host: "localhost" });
 
 			peer1.once("open", () => {
 				expect(peer1.open).toBe(true);
@@ -97,7 +96,7 @@ describe("Peer", () => {
 		it("disconnect => reconnect => destroy", (done) => {
 			mockServer.stop();
 
-			const peer1 = new Peer("1", { port: 8080, host: "localhost" });
+			const peer1 = new MeshClient("1", { port: 8080, host: "localhost" });
 
 			peer1.once("disconnected", (id) => {
 				expect(id).toBe("1");
@@ -137,10 +136,10 @@ describe("Peer", () => {
 		it("destroy peer if no id and no connection", (done) => {
 			mockServer.stop();
 
-			const peer1 = new Peer({ port: 8080, host: "localhost" });
+			const peer1 = new MeshClient({ port: 8080, host: "localhost" });
 
 			peer1.once("error", (error) => {
-				expect(error.type).toBe(PeerErrorType.ServerError);
+				expect(error.type).toBe(MeshClientErrorType.ServerError);
 
 				peer1.once("close", () => {
 					expect(peer1.disconnected).toBe(true);
@@ -162,48 +161,48 @@ describe("Peer", () => {
 	describe("constructor options", () => {
 		it("should handle different constructor overloads", () => {
 			// No parameters
-			const peer1 = new Peer();
+			const peer1 = new MeshClient();
 			expect(peer1.id).toBeNull();
 			peer1.destroy();
 
 			// Only options
-			const peer2 = new Peer({ debug: 1, key: "test-key" });
+			const peer2 = new MeshClient({ debug: 1, key: "test-key" });
 			expect(peer2.id).toBeNull();
 			expect(peer2.options.debug).toBe(1);
 			expect(peer2.options.key).toBe("test-key");
 			peer2.destroy();
 
 			// ID and options
-			const peer3 = new Peer("test-id", { debug: 2 });
+			const peer3 = new MeshClient("test-id", { debug: 2 });
 			expect(peer3.id).toBe("test-id");
 			expect(peer3.options.debug).toBe(2);
 			peer3.destroy();
 		});
 
 		it("should handle host path configuration", () => {
-			const peer1 = new Peer({ host: "/", path: "custom" });
+			const peer1 = new MeshClient({ host: "/", path: "custom" });
 			expect(peer1.options.host).toBe(window.location.hostname);
 			expect(peer1.options.path).toBe("/custom/");
 			peer1.destroy();
 
-			const peer2 = new Peer({ path: "/already/slashed/" });
+			const peer2 = new MeshClient({ path: "/already/slashed/" });
 			expect(peer2.options.path).toBe("/already/slashed/");
 			peer2.destroy();
 		});
 
 		it("should handle secure configuration", () => {
-			const peer1 = new Peer({ host: "custom.host" });
+			const peer1 = new MeshClient({ host: "custom.host" });
 			expect(peer1.options.secure).toBe(false); // util.isSecure() mock returns false
 			peer1.destroy();
 
-			const peer2 = new Peer({ secure: true });
+			const peer2 = new MeshClient({ secure: true });
 			expect(peer2.options.secure).toBe(true);
 			peer2.destroy();
 		});
 
 		it("should validate peer ID", (done) => {
 			// Create peer with invalid ID
-			const peer = new Peer("invalid id with spaces");
+			const peer = new MeshClient("invalid id with spaces");
 			const errorSpy = jest.fn();
 			peer.on("error", errorSpy);
 
@@ -218,10 +217,10 @@ describe("Peer", () => {
 	});
 
 	describe("node management", () => {
-		let peer: Peer;
+		let peer: MeshClient;
 
 		beforeEach(() => {
-			peer = new Peer();
+			peer = new MeshClient();
 		});
 
 		afterEach(() => {
@@ -318,17 +317,17 @@ describe("Peer", () => {
 			expect(result).toBeUndefined();
 			expect(errorSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
-					type: PeerErrorType.Disconnected,
+					type: MeshClientErrorType.Disconnected,
 				}),
 			);
 		});
 	});
 
 	describe("lost message handling", () => {
-		let peer: Peer;
+		let peer: MeshClient;
 
 		beforeEach(() => {
-			peer = new Peer();
+			peer = new MeshClient();
 		});
 
 		afterEach(() => {
@@ -369,10 +368,10 @@ describe("Peer", () => {
 	});
 
 	describe("lifecycle management", () => {
-		let peer: Peer;
+		let peer: MeshClient;
 
 		beforeEach(() => {
-			peer = new Peer();
+			peer = new MeshClient();
 		});
 
 		afterEach(() => {
@@ -403,7 +402,7 @@ describe("Peer", () => {
 		});
 
 		it("should handle disconnect", () => {
-			const peer = new Peer("test-id");
+			const peer = new MeshClient("test-id");
 
 			// Mock the ID to simulate opened state
 			(peer as any)._lastServerId = "test-id";
@@ -420,7 +419,7 @@ describe("Peer", () => {
 		});
 
 		it("should not disconnect twice", () => {
-			const peer = new Peer("test-id");
+			const peer = new MeshClient("test-id");
 			(peer as any)._lastServerId = "test-id";
 			(peer as any)._open = true;
 
@@ -475,10 +474,10 @@ describe("Peer", () => {
 	});
 
 	describe("message handling", () => {
-		let peer: Peer;
+		let peer: MeshClient;
 
 		beforeEach(() => {
-			peer = new Peer();
+			peer = new MeshClient();
 		});
 
 		afterEach(() => {
@@ -515,7 +514,7 @@ describe("Peer", () => {
 
 			expect(errorSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
-					type: PeerErrorType.ServerError,
+					type: MeshClientErrorType.ServerError,
 				}),
 			);
 		});
@@ -533,7 +532,7 @@ describe("Peer", () => {
 
 			expect(errorSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
-					type: PeerErrorType.UnavailableID,
+					type: MeshClientErrorType.UnavailableID,
 				}),
 			);
 		});
@@ -551,7 +550,7 @@ describe("Peer", () => {
 
 			expect(errorSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
-					type: PeerErrorType.InvalidKey,
+					type: MeshClientErrorType.InvalidKey,
 				}),
 			);
 		});
@@ -569,7 +568,7 @@ describe("Peer", () => {
 
 			expect(errorSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
-					type: PeerErrorType.PeerUnavailable,
+					type: MeshClientErrorType.PeerUnavailable,
 				}),
 			);
 		});
@@ -631,10 +630,10 @@ describe("Peer", () => {
 	});
 
 	describe("error handling", () => {
-		let peer: Peer;
+		let peer: MeshClient;
 
 		beforeEach(() => {
-			peer = new Peer();
+			peer = new MeshClient();
 		});
 
 		afterEach(() => {
@@ -648,12 +647,15 @@ describe("Peer", () => {
 			peer.on("error", errorSpy);
 
 			// Trigger delayed abort
-			(peer as any)._delayedAbort(PeerErrorType.ServerError, "Test error");
+			(peer as any)._delayedAbort(
+				MeshClientErrorType.ServerError,
+				"Test error",
+			);
 
 			setTimeout(() => {
 				expect(errorSpy).toHaveBeenCalledWith(
 					expect.objectContaining({
-						type: PeerErrorType.ServerError,
+						type: MeshClientErrorType.ServerError,
 					}),
 				);
 				done();
@@ -665,7 +667,7 @@ describe("Peer", () => {
 			peer.on("error", errorSpy);
 
 			// Trigger abort without server ID (should destroy)
-			(peer as any)._abort(PeerErrorType.ServerError, "Test error");
+			(peer as any)._abort(MeshClientErrorType.ServerError, "Test error");
 
 			// Should be destroyed
 			expect(peer.destroyed).toBe(true);
@@ -681,7 +683,7 @@ describe("Peer", () => {
 			(peer as any)._lastServerId = "test-id";
 
 			// Trigger abort with server ID (should disconnect)
-			(peer as any)._abort(PeerErrorType.ServerError, "Test error");
+			(peer as any)._abort(MeshClientErrorType.ServerError, "Test error");
 
 			expect(peer.disconnected).toBe(true);
 		});
@@ -689,7 +691,7 @@ describe("Peer", () => {
 
 	describe("socket integration", () => {
 		it("should handle socket events", () => {
-			const peer = new Peer();
+			const peer = new MeshClient();
 			const errorSpy = jest.fn();
 			peer.on("error", errorSpy);
 
@@ -698,7 +700,7 @@ describe("Peer", () => {
 
 			expect(errorSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
-					type: PeerErrorType.SocketError,
+					type: MeshClientErrorType.SocketError,
 				}),
 			);
 
@@ -706,7 +708,7 @@ describe("Peer", () => {
 		});
 
 		it("should handle socket disconnection", () => {
-			const peer = new Peer();
+			const peer = new MeshClient();
 			const errorSpy = jest.fn();
 			peer.on("error", errorSpy);
 
@@ -724,7 +726,7 @@ describe("Peer", () => {
 		});
 
 		it("should handle socket close", () => {
-			const peer = new Peer();
+			const peer = new MeshClient();
 			const errorSpy = jest.fn();
 			peer.on("error", errorSpy);
 
@@ -737,7 +739,7 @@ describe("Peer", () => {
 
 			expect(errorSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
-					type: PeerErrorType.SocketClosed,
+					type: MeshClientErrorType.SocketClosed,
 				}),
 			);
 

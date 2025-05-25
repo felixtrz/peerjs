@@ -2,7 +2,7 @@ import { EventEmitter } from "eventemitter3";
 import logger from "../utils/logger";
 
 export interface EventsWithError<ErrorType extends string> {
-	error: (error: PeerError<`${ErrorType}`>) => void;
+	error: (error: MeshClientError<`${ErrorType}`>) => void;
 }
 
 export class EventEmitterWithError<
@@ -18,14 +18,14 @@ export class EventEmitterWithError<
 		logger.error("Error:", err);
 
 		// @ts-ignore
-		this.emit("error", new PeerError<`${ErrorType}`>(`${type}`, err));
+		this.emit("error", new MeshClientError<`${ErrorType}`>(`${type}`, err));
 	}
 }
 /**
- * A PeerError is emitted whenever an error occurs.
+ * A MeshClientError is emitted whenever an error occurs.
  * It always has a `.type`, which can be used to identify the error.
  */
-export class PeerError<T extends string> extends Error {
+export class MeshClientError<T extends string> extends Error {
 	/**
 	 * @internal
 	 */

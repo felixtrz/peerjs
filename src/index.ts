@@ -1,15 +1,19 @@
 export { util, type Util } from "./utils/utils";
-import { Peer } from "./peer";
+import { MeshClient } from "./mesh-client";
 
-export type { PeerEvents, PeerOptions } from "./peer";
+export type { MeshClientEvents, MeshClientOptions } from "./mesh-client";
 
-export type { PeerJSOption, PeerConnectOption, AnswerOption } from "./options";
+export type { MeshClientJSOption, MeshClientConnectOption, AnswerOption } from "./options";
 export type { UtilSupportsObj } from "./utils/utils";
 export type { LogLevel } from "./utils/logger";
 export * from "./utils/enums";
 
-export { Node } from "./node";
-export type { NodeEvents } from "./node";
+export { RemoteNode } from "./remote-node";
+export type { RemoteNodeEvents } from "./remote-node";
 
-export { PeerError } from "./p2p/peer-error";
-export default Peer;
+export { MeshClientError } from "./p2p/mesh-client-error";
+
+// For backwards compatibility
+export { MeshClient as Peer };
+
+export default MeshClient;

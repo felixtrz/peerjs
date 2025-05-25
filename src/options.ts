@@ -5,7 +5,7 @@ export interface AnswerOption {
 	sdpTransform?: Function;
 }
 
-export interface PeerJSOption {
+export interface MeshClientJSOption {
 	key?: string;
 	host?: string;
 	port?: number;
@@ -17,7 +17,7 @@ export interface PeerJSOption {
 	referrerPolicy?: ReferrerPolicy;
 }
 
-export interface PeerConnectOption {
+export interface MeshClientConnectOption {
 	/**
 	 * A unique label by which you want to identify this data connection.
 	 * If left unspecified, a label will be generated at random.

@@ -6,14 +6,14 @@ import {
 	DataConnectionErrorType,
 	ServerMessageType,
 } from "../utils/enums";
-import type { Peer } from "../peer";
-import type { Node } from "../node";
+import type { MeshClient } from "../mesh-client";
+import type { RemoteNode } from "../remote-node";
 import type { ServerMessage } from "../server/server-message";
 import {
 	EventEmitterWithError,
 	type EventsWithError,
-	PeerError,
-} from "./peer-error";
+	MeshClientError,
+} from "./mesh-client-error";
 import { randomToken } from "../utils/utils";
 
 export interface BaseConnectionEvents<
@@ -32,7 +32,7 @@ export interface BaseConnectionEvents<
 	 * connection.on('error', (error) => { ... });
 	 * ```
 	 */
-	error: (error: PeerError<`${ErrorType}`>) => void;
+	error: (error: MeshClientError<`${ErrorType}`>) => void;
 	iceStateChanged: (state: RTCIceConnectionState) => void;
 }
 
@@ -97,8 +97,8 @@ export abstract class DataConnection extends EventEmitterWithError<
 		 * The ID of the peer on the other end of this connection.
 		 */
 		readonly peer: string,
-		public provider: Peer,
-		public node: Node,
+		public provider: MeshClient,
+		public node: RemoteNode,
 		readonly options: any,
 	) {
 		super();

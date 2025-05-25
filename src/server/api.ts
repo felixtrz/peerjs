@@ -1,10 +1,10 @@
 import { util } from "../utils/utils";
 import logger from "../utils/logger";
-import type { PeerJSOption } from "../options";
+import type { MeshClientJSOption } from "../options";
 import { version } from "../../package.json";
 
 export class API {
-	constructor(private readonly _options: PeerJSOption) {}
+	constructor(private readonly _options: MeshClientJSOption) {}
 
 	private _buildRequest(method: string): Promise<Response> {
 		const protocol = this._options.secure ? "https" : "http";

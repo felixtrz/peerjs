@@ -2,7 +2,7 @@ export enum ConnectionType {
 	Data = "data",
 }
 
-export enum PeerErrorType {
+export enum MeshClientErrorType {
 	/**
 	 * The client's browser does not support some or all WebRTC features that you are trying to use.
 	 */

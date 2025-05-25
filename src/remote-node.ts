@@ -1,10 +1,10 @@
-import { EventEmitterWithError, type EventsWithError } from "./p2p/peer-error";
+import { EventEmitterWithError, type EventsWithError } from "./p2p/mesh-client-error";
 import type { DataConnection } from "./p2p/data-connection";
-import type { Peer } from "./peer";
+import type { MeshClient } from "./mesh-client";
 import type { ServerMessage } from "./server/server-message";
 import logger from "./utils/logger";
 
-export interface NodeEvents extends EventsWithError<string> {
+export interface RemoteNodeEvents extends EventsWithError<string> {
 	/**
 	 * Emitted when data is received from the remote peer.
 	 */
@@ -26,7 +26,7 @@ export interface NodeEvents extends EventsWithError<string> {
 /**
  * Represents a remote client (peer) and manages all connections to it.
  */
-export class Node extends EventEmitterWithError<string, NodeEvents> {
+export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> {
 	private _connections: DataConnection[] = [];
 	private _open = false;
 	private _destroyed = false;
@@ -66,7 +66,7 @@ export class Node extends EventEmitterWithError<string, NodeEvents> {
 
 	constructor(
 		peer: string,
-		private provider: Peer,
+		private provider: MeshClient,
 		metadata?: any,
 	) {
 		super();

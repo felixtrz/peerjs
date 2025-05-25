@@ -1,7 +1,7 @@
 import { BinaryPackChunker, concatArrayBuffers } from "./binary-pack-chunker";
 import logger from "../../utils/logger";
-import type { Peer } from "../../peer";
-import type { Node } from "../../node";
+import type { MeshClient } from "../../mesh-client";
+import type { RemoteNode } from "../../remote-node";
 import { BufferedConnection } from "./buffered-connection";
 import { SerializationType } from "../../utils/enums";
 import { pack, type Packable, unpack } from "peerjs-js-binarypack";
@@ -23,7 +23,7 @@ export class BinaryPack extends BufferedConnection {
 		this._chunkedData = {};
 	}
 
-	constructor(peerId: string, provider: Peer, node: Node, options: any) {
+	constructor(peerId: string, provider: MeshClient, node: RemoteNode, options: any) {
 		super(peerId, provider, node, options);
 	}
 
