@@ -7,6 +7,7 @@ import {
 	ServerMessageType,
 } from "../enums";
 import type { Peer } from "../peer";
+import type { Node } from "../node";
 import type { ServerMessage } from "../servermessage";
 import {
 	EventEmitterWithError,
@@ -97,6 +98,7 @@ export abstract class DataConnection extends EventEmitterWithError<
 		 */
 		readonly peer: string,
 		public provider: Peer,
+		public node: Node,
 		readonly options: any,
 	) {
 		super();
@@ -159,9 +161,12 @@ export abstract class DataConnection extends EventEmitterWithError<
 			this._negotiator = null;
 		}
 
-		if (this.provider) {
-			this.provider._removeConnection(this);
+		if (this.node) {
+			this.node._removeConnection(this);
+			this.node = null;
+		}
 
+		if (this.provider) {
 			this.provider = null;
 		}
 

@@ -6,10 +6,10 @@ export const check = (received) => {
 	expect(received).to.deep.equal(strings);
 };
 /**
- * @param {import("../peerjs").DataConnection} dataConnection
+ * @param {import("../peerjs").Node} node
  */
-export const send = (dataConnection) => {
+export const send = (node) => {
 	for (const string of strings) {
-		dataConnection.send(string);
+		node.send(string);
 	}
 };

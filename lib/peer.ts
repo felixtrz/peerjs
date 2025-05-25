@@ -2,6 +2,7 @@ import { util } from "./util";
 import logger, { LogLevel } from "./logger";
 import { Socket } from "./socket";
 import type { DataConnection } from "./dataconnection/DataConnection";
+import { Node } from "./node";
 import {
 	ConnectionType,
 	PeerErrorType,
@@ -10,10 +11,7 @@ import {
 } from "./enums";
 import type { ServerMessage } from "./servermessage";
 import { API } from "./api";
-import type {
-	PeerConnectOption,
-	PeerJSOption,
-} from "./optionInterfaces";
+import type { PeerConnectOption, PeerJSOption } from "./optionInterfaces";
 import { BinaryPack } from "./dataconnection/BufferedConnection/BinaryPack";
 import { Raw } from "./dataconnection/BufferedConnection/Raw";
 import { Json } from "./dataconnection/BufferedConnection/Json";
@@ -67,10 +65,14 @@ class PeerOptions implements PeerJSOption {
 
 export { type PeerOptions };
 
+/**
+ * @internal
+ */
 export interface SerializerMapping {
 	[key: string]: new (
 		peerId: string,
 		provider: Peer,
+		node: Node,
 		options: any,
 	) => DataConnection;
 }
@@ -83,9 +85,9 @@ export interface PeerEvents {
 	 */
 	open: (id: string) => void;
 	/**
-	 * Emitted when a new data connection is established from a remote peer.
+	 * Emitted when a new node is established from a remote peer.
 	 */
-	connection: (dataConnection: DataConnection) => void;
+	connection: (node: Node) => void;
 	/**
 	 * Emitted when the peer is destroyed and can no longer accept or create any new connections.
 	 */
@@ -126,10 +128,7 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 	private _destroyed = false; // Connections have been killed
 	private _disconnected = false; // Connection to PeerServer killed but P2P connections still active
 	private _open = false; // Sockets and such are not yet open.
-	private readonly _connections: Map<
-		string,
-		DataConnection[]
-	> = new Map(); // All connections for this peer.
+	private readonly _nodes: Map<string, Node> = new Map(); // All nodes for this peer.
 	private readonly _lostMessages: Map<string, ServerMessage[]> = new Map(); // src => [list of messages]
 	/**
 	 * The brokering ID of this peer
@@ -157,18 +156,16 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 	}
 
 	/**
-	 * A hash of all connections associated with this peer, keyed by the remote peer's ID.
-	 * @deprecated
-	 * Return type will change from Object to Map<string,[]>
+	 * A hash of all nodes associated with this peer, keyed by the remote peer's ID.
 	 */
-	get connections(): Object {
-		const plainConnections = Object.create(null);
+	get nodes(): Object {
+		const plainNodes = Object.create(null);
 
-		for (const [k, v] of this._connections) {
-			plainConnections[k] = v;
+		for (const [k, v] of this._nodes) {
+			plainNodes[k] = v;
 		}
 
-		return plainConnections;
+		return plainNodes;
 	}
 
 	/**
@@ -268,10 +265,10 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 
 		// Sanity checks
 		// Ensure WebRTC supported
-		if (!util.supports.audioVideo && !util.supports.data) {
+		if (!util.supports.data) {
 			this._delayedAbort(
 				PeerErrorType.BrowserIncompatible,
-				"The current browser does not support WebRTC",
+				"The current browser does not support WebRTC data channels",
 			);
 			return;
 		}
@@ -366,7 +363,6 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 			case ServerMessageType.Leave: // Another peer has closed its connection to this peer.
 				logger.log(`Received leave message from ${peerId}`);
 				this._cleanupPeer(peerId);
-				this._connections.delete(peerId);
 				break;
 			case ServerMessageType.Expire: // The offer sent to a peer has expired without response.
 				this.emitError(
@@ -377,7 +373,8 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 			case ServerMessageType.Offer: {
 				// we should consider switching this to CALL/CONNECT, but this is the least breaking option.
 				const connectionId = payload.connectionId;
-				let connection = this.getConnection(peerId, connectionId);
+				const node = this._nodes.get(peerId);
+				let connection = node?.getConnection(connectionId);
 
 				if (connection) {
 					connection.close();
@@ -388,9 +385,24 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 
 				// Create a new connection.
 				if (payload.type === ConnectionType.Data) {
+					// Get or create node for this peer first
+					let node = this._nodes.get(peerId);
+					if (!node) {
+						node = new Node(peerId, this, payload.metadata);
+						this._nodes.set(peerId, node);
+						this.emit("connection", node);
+						
+						// Transfer any existing lost messages from peer to node
+						const peerLostMessages = this._getMessages(connectionId);
+						for (const msg of peerLostMessages) {
+							node._storeMessage(connectionId, msg);
+						}
+					}
+
 					const dataConnection = new this._serializers[payload.serialization](
 						peerId,
 						this,
+						node,
 						{
 							connectionId: connectionId,
 							_payload: payload,
@@ -402,18 +414,12 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 					);
 					connection = dataConnection;
 
-					this._addConnection(peerId, connection);
-					this.emit("connection", dataConnection);
+					node._addConnection(dataConnection);
 				} else {
 					logger.warn(`Received malformed connection type:${payload.type}`);
 					return;
 				}
 
-				// Find messages.
-				const messages = this._getMessages(connectionId);
-				for (const message of messages) {
-					connection.handleMessage(message);
-				}
 
 				break;
 			}
@@ -426,14 +432,21 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 				}
 
 				const connectionId = payload.connectionId;
-				const connection = this.getConnection(peerId, connectionId);
+				const node = this._nodes.get(peerId);
+				const connection = node?.getConnection(connectionId);
 
 				if (connection && connection.peerConnection) {
 					// Pass it on.
 					connection.handleMessage(message);
 				} else if (connectionId) {
-					// Store for possible later use
-					this._storeMessage(connectionId, message);
+					// Store for possible later use in the appropriate node
+					const node = this._nodes.get(peerId);
+					if (node) {
+						node._storeMessage(connectionId, message);
+					} else {
+						// If no node exists yet, store in peer's lost messages as fallback
+						this._storeMessage(connectionId, message);
+					}
 				} else {
 					logger.warn("You received an unrecognized message:", message);
 				}
@@ -468,11 +481,11 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 	}
 
 	/**
-	 * Connects to the remote peer specified by id and returns a data connection.
+	 * Connects to the remote peer specified by id and returns a Node.
 	 * @param peer The brokering ID of the remote peer (their {@apilink Peer.id}).
 	 * @param options for specifying details about Peer Connection
 	 */
-	connect(peer: string, options: PeerConnectOption = {}): DataConnection {
+	connect(peer: string, options: PeerConnectOption = {}): Node {
 		options = {
 			serialization: "default",
 			...options,
@@ -491,64 +504,39 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 			return;
 		}
 
+		// Get or create node for this peer
+		let node = this._nodes.get(peer);
+		if (!node) {
+			node = new Node(peer, this, options.metadata);
+			this._nodes.set(peer, node);
+		}
+
+		// Create data connection
 		const dataConnection = new this._serializers[options.serialization](
 			peer,
 			this,
+			node,
 			options,
 		);
-		this._addConnection(peer, dataConnection);
-		return dataConnection;
+		node._addConnection(dataConnection);
+
+		return node;
+	}
+
+	/** Clean up lost messages for a connection */
+	_cleanupLostMessages(connectionId: string): void {
+		this._lostMessages.delete(connectionId);
 	}
 
 
-	/** Add a data connection to this peer. */
-	private _addConnection(
-		peerId: string,
-		connection: DataConnection,
-	): void {
-		logger.log(
-			`add connection ${connection.type}:${connection.connectionId} to peerId:${peerId}`,
-		);
-
-		if (!this._connections.has(peerId)) {
-			this._connections.set(peerId, []);
-		}
-		this._connections.get(peerId).push(connection);
+	/** Remove a node from this peer. */
+	_removeNode(node: Node): void {
+		this._nodes.delete(node.peer);
 	}
 
-	//TODO should be private
-	_removeConnection(connection: DataConnection): void {
-		const connections = this._connections.get(connection.peer);
-
-		if (connections) {
-			const index = connections.indexOf(connection);
-
-			if (index !== -1) {
-				connections.splice(index, 1);
-			}
-		}
-
-		//remove from lost messages
-		this._lostMessages.delete(connection.connectionId);
-	}
-
-	/** Retrieve a data connection for this peer. */
-	getConnection(
-		peerId: string,
-		connectionId: string,
-	): null | DataConnection {
-		const connections = this._connections.get(peerId);
-		if (!connections) {
-			return null;
-		}
-
-		for (const connection of connections) {
-			if (connection.connectionId === connectionId) {
-				return connection;
-			}
-		}
-
-		return null;
+	/** Get a node for a specific peer ID. */
+	getNode(peerId: string): Node | undefined {
+		return this._nodes.get(peerId);
 	}
 
 	private _delayedAbort(type: PeerErrorType, message: string | Error): void {
@@ -601,22 +589,20 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 
 	/** Disconnects every connection on this peer. */
 	private _cleanup(): void {
-		for (const peerId of this._connections.keys()) {
-			this._cleanupPeer(peerId);
-			this._connections.delete(peerId);
+		// Close all nodes (which will close their connections)
+		for (const node of this._nodes.values()) {
+			node.close();
 		}
+		this._nodes.clear();
 
 		this.socket.removeAllListeners();
 	}
 
 	/** Closes all connections to this peer. */
 	private _cleanupPeer(peerId: string): void {
-		const connections = this._connections.get(peerId);
-
-		if (!connections) return;
-
-		for (const connection of connections) {
-			connection.close();
+		const node = this._nodes.get(peerId);
+		if (node) {
+			node.close();
 		}
 	}
 
@@ -674,18 +660,5 @@ export class Peer extends EventEmitterWithError<PeerErrorType, PeerEvents> {
 				`Peer ${this.id} cannot reconnect because it is not disconnected from the server!`,
 			);
 		}
-	}
-
-	/**
-	 * Get a list of available peer IDs. If you're running your own server, you'll
-	 * want to set allow_discovery: true in the PeerServer options. If you're using
-	 * the cloud server, email team@peerjs.com to get the functionality enabled for
-	 * your key.
-	 */
-	listAllPeers(cb = (_: any[]) => {}): void {
-		this._api
-			.listAllPeers()
-			.then((peers) => cb(peers))
-			.catch((error) => this._abort(PeerErrorType.ServerError, error));
 	}
 }

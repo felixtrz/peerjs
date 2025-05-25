@@ -6,10 +6,10 @@ export const check = (received) => {
 	expect(received).to.deep.equal(numbers);
 };
 /**
- * @param {import("../peerjs").DataConnection} dataConnection
+ * @param {import("../peerjs").Node} node
  */
-export const send = (dataConnection) => {
+export const send = (node) => {
 	for (const number of numbers) {
-		dataConnection.send(number);
+		node.send(number);
 	}
 };

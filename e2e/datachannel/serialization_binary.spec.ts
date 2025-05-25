@@ -32,18 +32,8 @@ describe("DataChannel:Binary", () => {
 		jasmine.DEFAULT_TIMEOUT_INTERVAL,
 		2,
 	);
-	it(
-		"should transfer Blobs",
-		serializationTest("./blobs", "binary"),
-		jasmine.DEFAULT_TIMEOUT_INTERVAL,
-		2,
-	);
-	it(
-		"should transfer Files",
-		serializationTest("./files", "binary"),
-		jasmine.DEFAULT_TIMEOUT_INTERVAL,
-		2,
-	);
+	// Removed Blob and File tests - BufferedConnection doesn't support these types
+	// These were specific to StreamConnection which has been removed
 	it(
 		"should transfer arrays",
 		serializationTest("./arrays", "binary"),

@@ -29,9 +29,9 @@ const serialization = params.get("serialization");
 	});
 	const received = [];
 	/**
-	 * @type {import("../../lib/exports.js").DataConnection}
+	 * @type {import("../../lib/exports.js").Node}
 	 */
-	let dataConnection;
+	let node;
 	peer
 		.once("open", (id) => {
 			messages.textContent = `Your Peer ID: ${id}`;
@@ -39,13 +39,13 @@ const serialization = params.get("serialization");
 		.once("error", (error) => {
 			errorMessage.textContent = JSON.stringify(error);
 		})
-		.once("connection", (connection) => {
-			dataConnection = connection;
-			dataConnection.on("data", (data) => {
+		.once("connection", (remoteNode) => {
+			node = remoteNode;
+			node.on("data", (data) => {
 				console.log(data);
 				received.push(data);
 			});
-			dataConnection.once("close", () => {
+			node.once("close", () => {
 				messages.textContent = "Closed!";
 			});
 		});
@@ -53,11 +53,11 @@ const serialization = params.get("serialization");
 	connectBtn.addEventListener("click", () => {
 		const receiverId = receiverIdInput.value;
 		if (receiverId) {
-			dataConnection = peer.connect(receiverId, {
+			node = peer.connect(receiverId, {
 				reliable: true,
 				serialization,
 			});
-			dataConnection.once("open", () => {
+			node.once("open", () => {
 				messages.textContent = "Connected!";
 			});
 		}
@@ -77,12 +77,15 @@ const serialization = params.get("serialization");
 	});
 
 	sendBtn.addEventListener("click", async () => {
-		dataConnection.once("error", (err) => {
+		node.once("error", (err) => {
 			errorMessage.innerText = err.toString();
 		});
-		await send(dataConnection);
-		dataConnection.close({ flush: true });
-		messages.textContent = "Sent!";
+		await send(node);
+		// Add a small delay before closing to ensure all messages are sent
+		setTimeout(() => {
+			node.close();
+			messages.textContent = "Sent!";
+		}, 500);
 	});
 	window["connect-btn"].disabled = false;
 })();

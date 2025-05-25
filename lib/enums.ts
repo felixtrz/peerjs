@@ -1,6 +1,5 @@
 export enum ConnectionType {
 	Data = "data",
-	Media = "media",
 }
 
 export enum PeerErrorType {

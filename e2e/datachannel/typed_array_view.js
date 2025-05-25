@@ -10,8 +10,8 @@ export const check = (received) => {
 	}
 };
 /**
- * @param {import("../peerjs").DataConnection} dataConnection
+ * @param {import("../peerjs").Node} node
  */
-export const send = (dataConnection) => {
-	dataConnection.send(typed_array_view);
+export const send = (node) => {
+	node.send(typed_array_view);
 };

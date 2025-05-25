@@ -10,12 +10,11 @@ export type {
 	AnswerOption,
 } from "./optionInterfaces";
 export type { UtilSupportsObj } from "./util";
-export type { DataConnection } from "./dataconnection/DataConnection";
 export type { LogLevel } from "./logger";
 export * from "./enums";
 
-export { BufferedConnection } from "./dataconnection/BufferedConnection/BufferedConnection";
-export type { SerializerMapping } from "./peer";
+export { Node } from "./node";
+export type { NodeEvents } from "./node";
 
 export { Peer, MsgPackPeer };
 

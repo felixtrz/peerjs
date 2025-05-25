@@ -7,10 +7,10 @@ export const check = (received) => {
 	expect(received).to.deep.equal(dates.map((date) => date.toString()));
 };
 /**
- * @param {import("../peerjs").DataConnection} dataConnection
+ * @param {import("../peerjs").Node} node
  */
-export const send = (dataConnection) => {
+export const send = (node) => {
 	for (const date of dates) {
-		dataConnection.send(date);
+		node.send(date);
 	}
 };

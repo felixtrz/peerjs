@@ -1,6 +1,7 @@
 import { BinaryPackChunker, concatArrayBuffers } from "./binaryPackChunker";
 import logger from "../../logger";
 import type { Peer } from "../../peer";
+import type { Node } from "../../node";
 import { BufferedConnection } from "./BufferedConnection";
 import { SerializationType } from "../../enums";
 import { pack, type Packable, unpack } from "peerjs-js-binarypack";
@@ -22,8 +23,8 @@ export class BinaryPack extends BufferedConnection {
 		this._chunkedData = {};
 	}
 
-	constructor(peerId: string, provider: Peer, options: any) {
-		super(peerId, provider, options);
+	constructor(peerId: string, provider: Peer, node: Node, options: any) {
+		super(peerId, provider, node, options);
 	}
 
 	// Handles a DataChannel message.

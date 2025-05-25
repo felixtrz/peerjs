@@ -6,8 +6,8 @@ export const check = (received) => {
 	expect(received).to.deep.equal([long_string]);
 };
 /**
- * @param {import("../peerjs").DataConnection} dataConnection
+ * @param {import("../peerjs").Node} node
  */
-export const send = (dataConnection) => {
-	dataConnection.send(long_string);
+export const send = (node) => {
+	node.send(long_string);
 };

@@ -43,42 +43,12 @@ export const Supports = new (class {
 		return webRTCAdapter.browserDetails.version || 0;
 	}
 
-	isUnifiedPlanSupported(): boolean {
-		const browser = this.getBrowser();
-		const version = webRTCAdapter.browserDetails.version || 0;
-
-		if (browser === "chrome" && version < this.minChromeVersion) return false;
-		if (browser === "firefox" && version >= this.minFirefoxVersion) return true;
-		if (
-			!window.RTCRtpTransceiver ||
-			!("currentDirection" in RTCRtpTransceiver.prototype)
-		)
-			return false;
-
-		let tempPc: RTCPeerConnection;
-		let supported = false;
-
-		try {
-			tempPc = new RTCPeerConnection();
-			tempPc.addTransceiver("audio");
-			supported = true;
-		} catch (e) {
-		} finally {
-			if (tempPc) {
-				tempPc.close();
-			}
-		}
-
-		return supported;
-	}
-
 	toString(): string {
 		return `Supports:
     browser:${this.getBrowser()}
     version:${this.getVersion()}
     isIOS:${this.isIOS}
     isWebRTCSupported:${this.isWebRTCSupported()}
-    isBrowserSupported:${this.isBrowserSupported()}
-    isUnifiedPlanSupported:${this.isUnifiedPlanSupported()}`;
+    isBrowserSupported:${this.isBrowserSupported()}`;
 	}
 })();

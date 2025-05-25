@@ -126,15 +126,13 @@ export class Negotiator<Connection extends DataConnection> {
 			logger.log("Received data channel");
 
 			const dataChannel = evt.channel;
+			const node = provider.getNode(peerId);
 			const connection = <DataConnection>(
-				provider.getConnection(peerId, connectionId)
+				node?.getConnection(connectionId)
 			);
 
 			connection._initializeDataChannel(dataChannel);
 		};
-
-		// Remote stream handling removed as we only support DataConnection now
-		peerConnection.ontrack = () => {};
 	}
 
 	cleanup(): void {

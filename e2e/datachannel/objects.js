@@ -7,10 +7,10 @@ export const check = (received) => {
 	expect(received).to.deep.equal(commit_data);
 };
 /**
- * @param {import("../peerjs").DataConnection} dataConnection
+ * @param {import("../peerjs").Node} node
  */
-export const send = (dataConnection) => {
+export const send = (node) => {
 	for (const commit of commit_data) {
-		dataConnection.send(commit);
+		node.send(commit);
 	}
 };

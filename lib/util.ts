@@ -21,10 +21,6 @@ export interface UtilSupportsObj {
 	browser: boolean;
 	webRTC: boolean;
 	/**
-	 * True if the current browser supports media streams and PeerConnection.
-	 */
-	audioVideo: boolean;
-	/**
 	 * True if the current browser supports DataChannel and PeerConnection.
 	 */
 	data: boolean;
@@ -79,7 +75,6 @@ export class Util extends BinaryPackChunker {
 		const supported: UtilSupportsObj = {
 			browser: Supports.isBrowserSupported(),
 			webRTC: Supports.isWebRTCSupported(),
-			audioVideo: false,
 			data: false,
 			binaryBlob: false,
 			reliable: false,
@@ -91,8 +86,6 @@ export class Util extends BinaryPackChunker {
 
 		try {
 			pc = new RTCPeerConnection(DEFAULT_CONFIG);
-
-			supported.audioVideo = true;
 
 			let dc: RTCDataChannel;
 

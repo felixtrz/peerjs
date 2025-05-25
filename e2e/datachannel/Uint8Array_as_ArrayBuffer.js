@@ -9,10 +9,10 @@ export const check = (received) => {
 	}
 };
 /**
- * @param {import("../peerjs").DataConnection} dataConnection
+ * @param {import("../peerjs").Node} node
  */
-export const send = (dataConnection) => {
+export const send = (node) => {
 	for (const typed_array of uint8_arrays) {
-		dataConnection.send(typed_array);
+		node.send(typed_array);
 	}
 };
