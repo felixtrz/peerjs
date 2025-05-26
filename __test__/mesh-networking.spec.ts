@@ -219,14 +219,16 @@ describe("Mesh Networking", () => {
 			// Get the internal mesh message handler
 			const dataHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "_internal_mesh_message",
-			)?.[1];
+			)?.[1] as ((data: any) => void) | undefined;
 			expect(dataHandler).toBeDefined();
 
 			// Simulate receiving mesh-peers message
-			dataHandler({
-				type: "mesh-peers",
-				peers: ["client-c", "client-d"],
-			});
+			if (dataHandler) {
+				dataHandler({
+					type: "mesh-peers",
+					peers: ["client-c", "client-d"],
+				});
+			}
 
 			expect(connectToMeshPeersSpy).toHaveBeenCalledWith([
 				"client-c",
@@ -253,13 +255,15 @@ describe("Mesh Networking", () => {
 			// Get the internal mesh message handler
 			const dataHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "_internal_mesh_message",
-			)?.[1];
+			)?.[1] as ((data: any) => void) | undefined;
 			expect(dataHandler).toBeDefined();
 
 			// Simulate receiving regular data message - these should be ignored
-			dataHandler("regular message");
-			dataHandler({ type: "other", data: "test" });
-			dataHandler({ type: "mesh-peers", peers: "not-an-array" }); // Invalid format
+			if (dataHandler) {
+				dataHandler("regular message");
+				dataHandler({ type: "other", data: "test" });
+				dataHandler({ type: "mesh-peers", peers: "not-an-array" }); // Invalid format
+			}
 
 			expect(connectToMeshPeersSpy).not.toHaveBeenCalled();
 
@@ -292,11 +296,13 @@ describe("Mesh Networking", () => {
 			// Get the open handler
 			const openHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "open",
-			)?.[1];
+			)?.[1] as (() => void) | undefined;
 			expect(openHandler).toBeDefined();
 
 			// Simulate node opening
-			openHandler();
+			if (openHandler) {
+				openHandler();
+			}
 
 			// Should send peer list with acknowledgment required
 			expect(mockNode.send).toHaveBeenCalledWith({
@@ -328,11 +334,13 @@ describe("Mesh Networking", () => {
 			// Get the open handler
 			const openHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "open",
-			)?.[1];
+			)?.[1] as (() => void) | undefined;
 			expect(openHandler).toBeDefined();
 
 			// Simulate node opening
-			openHandler();
+			if (openHandler) {
+				openHandler();
+			}
 
 			// Should still send handshake even with empty peer list
 			expect(mockNode.send).toHaveBeenCalledWith({
@@ -357,15 +365,17 @@ describe("Mesh Networking", () => {
 			// Get the internal mesh message handler
 			const dataHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "_internal_mesh_message",
-			)?.[1];
+			)?.[1] as ((data: any) => void) | undefined;
 
 			// Simulate receiving mesh-peers message
-			dataHandler({
-				type: "mesh-peers",
-				peers: ["client-c"],
-				timestamp: 12345,
-				requiresAck: true
-			});
+			if (dataHandler) {
+				dataHandler({
+					type: "mesh-peers",
+					peers: ["client-c"],
+					timestamp: 12345,
+					requiresAck: true
+				});
+			}
 
 			// Should send acknowledgment
 			expect(mockNode.send).toHaveBeenCalledWith({
@@ -391,10 +401,12 @@ describe("Mesh Networking", () => {
 			// Get the open handler
 			const openHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "open",
-			)?.[1];
+			)?.[1] as (() => void) | undefined;
 
 			// Simulate node opening
-			openHandler();
+			if (openHandler) {
+				openHandler();
+			}
 
 			// Clear send mock
 			mockNode.send.mockClear();
