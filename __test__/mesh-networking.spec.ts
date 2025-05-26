@@ -219,7 +219,7 @@ describe("Mesh Networking", () => {
 			// Get the internal mesh message handler
 			const dataHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "_internal_mesh_message",
-			)?.[1];
+			)?.[1] as Function;
 			expect(dataHandler).toBeDefined();
 
 			// Simulate receiving mesh-peers message
@@ -253,7 +253,7 @@ describe("Mesh Networking", () => {
 			// Get the internal mesh message handler
 			const dataHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "_internal_mesh_message",
-			)?.[1];
+			)?.[1] as Function;
 			expect(dataHandler).toBeDefined();
 
 			// Simulate receiving regular data message - these should be ignored
@@ -292,7 +292,7 @@ describe("Mesh Networking", () => {
 			// Get the open handler
 			const openHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "open",
-			)?.[1];
+			)?.[1] as Function;
 			expect(openHandler).toBeDefined();
 
 			// Simulate node opening
@@ -328,7 +328,7 @@ describe("Mesh Networking", () => {
 			// Get the open handler
 			const openHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "open",
-			)?.[1];
+			)?.[1] as Function;
 			expect(openHandler).toBeDefined();
 
 			// Simulate node opening
@@ -357,7 +357,7 @@ describe("Mesh Networking", () => {
 			// Get the internal mesh message handler
 			const dataHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "_internal_mesh_message",
-			)?.[1];
+			)?.[1] as Function;
 
 			// Simulate receiving mesh-peers message
 			dataHandler({
@@ -391,7 +391,7 @@ describe("Mesh Networking", () => {
 			// Get the open handler
 			const openHandler = mockNode.on.mock.calls.find(
 				(call) => call[0] === "open",
-			)?.[1];
+			)?.[1] as Function;
 
 			// Simulate node opening
 			openHandler();

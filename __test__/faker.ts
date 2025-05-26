@@ -63,7 +63,7 @@ const fakeGlobals = {
 		onnegotiationneeded: ((event: Event) => void) | null = null;
 		onsignalingstatechange: ((event: Event) => void) | null = null;
 
-		constructor(configuration?: RTCConfiguration) {
+		constructor(_configuration?: RTCConfiguration) {
 			// Mock implementation
 		}
 
@@ -73,7 +73,7 @@ const fakeGlobals = {
 			this.signalingState = "closed";
 		}
 
-		createDataChannel(label: string, options?: RTCDataChannelInit): RTCDataChannel {
+		createDataChannel(label: string, _options?: RTCDataChannelInit): RTCDataChannel {
 			return {
 				label,
 				id: Math.floor(Math.random() * 65535),
@@ -99,14 +99,14 @@ const fakeGlobals = {
 			} as unknown as RTCDataChannel;
 		}
 
-		createOffer(options?: RTCOfferOptions): Promise<RTCSessionDescriptionInit> {
+		createOffer(_options?: RTCOfferOptions): Promise<RTCSessionDescriptionInit> {
 			return Promise.resolve({
 				type: "offer",
 				sdp: "mock-sdp-offer",
 			});
 		}
 
-		createAnswer(options?: RTCAnswerOptions): Promise<RTCSessionDescriptionInit> {
+		createAnswer(_options?: RTCAnswerOptions): Promise<RTCSessionDescriptionInit> {
 			return Promise.resolve({
 				type: "answer",
 				sdp: "mock-sdp-answer",
@@ -123,11 +123,11 @@ const fakeGlobals = {
 			return Promise.resolve();
 		}
 
-		addIceCandidate(candidate?: RTCIceCandidateInit): Promise<void> {
+		addIceCandidate(_candidate?: RTCIceCandidateInit): Promise<void> {
 			return Promise.resolve();
 		}
 
-		getStats(selector?: MediaStreamTrack | null): Promise<RTCStatsReport> {
+		getStats(_selector?: MediaStreamTrack | null): Promise<RTCStatsReport> {
 			return Promise.resolve(new Map() as RTCStatsReport);
 		}
 

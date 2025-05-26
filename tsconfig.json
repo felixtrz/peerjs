@@ -9,6 +9,7 @@
 		"isolatedModules": true,
 		"resolveJsonModule": true,
 		"lib": ["es2020", "dom"],
+		"types": ["jest"],
 		"paths": {
 			"cbor-x/index-no-eval": ["./node_modules/cbor-x"]
 		}
