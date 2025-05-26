@@ -104,6 +104,14 @@ document.getElementById("send").addEventListener("click", () => {
 		const sentCount = mesh.broadcast(message);
 		console.log(`Message broadcasted to ${sentCount} peers`);
 		createNewMessage("Me", message);
+		
+		// Example: Send unreliable messages for real-time data
+		// This uses the 'realtime' channel which has lower latency but no delivery guarantees
+		if (message.includes('position') || message.includes('realtime')) {
+			mesh.broadcast(message, { reliable: false });
+			console.log('Also sent via unreliable channel for low latency');
+		}
+		
 		document.getElementById("message").value = "";
 	}
 });

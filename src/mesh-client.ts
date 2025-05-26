@@ -409,7 +409,14 @@ export class MeshClient extends EventEmitterWithError<
 					// Get or create node for this peer first
 					let node: RemoteNode | undefined = this._remoteNodes.get(peerId);
 					if (!node) {
-						node = new RemoteNode(peerId, this, payload.metadata);
+						// Create node with connection options from the offer
+						const nodeOptions: MeshClientConnectOption = {
+							label: payload.label,
+							metadata: payload.metadata,
+							serialization: payload.serialization,
+							reliable: payload.reliable,
+						};
+						node = new RemoteNode(peerId, this, payload.metadata, nodeOptions);
 						this._remoteNodes.set(peerId, node);
 
 						// Set up mesh networking for incoming connections
@@ -531,6 +538,11 @@ export class MeshClient extends EventEmitterWithError<
 		// Prevent duplicate connection attempts
 		if (this._connectionAttempts.has(peer)) {
 			logger.warn(`Connection attempt to ${peer} already in progress`);
+			// Return existing node if we have one
+			const existingNode = this._remoteNodes.get(peer);
+			if (existingNode) {
+				return existingNode;
+			}
 			return;
 		}
 
@@ -540,19 +552,24 @@ export class MeshClient extends EventEmitterWithError<
 		// Get or create node for this peer
 		let node: RemoteNode | undefined = this._remoteNodes.get(peer);
 		if (!node) {
-			node = new RemoteNode(peer, this, options.metadata);
+			node = new RemoteNode(peer, this, options.metadata, options);
 			this._remoteNodes.set(peer, node);
 
 			// Set up mesh networking for this node
 			this._handleMeshNetworking(node);
 		}
 
-		// Create data connection
-		const dataConnection = new this._serializers[options.serialization](
+		// Create data connection with proper label
+		const connectionOptions = {
+			...options,
+			// Set label based on reliability if not already set
+			label: options.label || (options.reliable === false ? 'realtime' : 'reliable'),
+		};
+		const dataConnection = new this._serializers[connectionOptions.serialization](
 			peer,
 			this,
 			node,
-			options,
+			connectionOptions,
 		);
 		node._addConnection(dataConnection);
 
@@ -575,6 +592,45 @@ export class MeshClient extends EventEmitterWithError<
 		}
 
 		return node;
+	}
+
+	/**
+	 * Creates a data connection to a peer.
+	 * @internal Used by RemoteNode for lazy channel creation
+	 */
+	_createDataConnection(peer: string, options: MeshClientConnectOption): DataConnection | null {
+		if (this.disconnected) {
+			logger.warn("Cannot create connection when disconnected from server");
+			return null;
+		}
+
+		const node = this._remoteNodes.get(peer);
+		if (!node) {
+			logger.warn(`No node found for peer ${peer}`);
+			return null;
+		}
+
+		// Ensure serialization is set
+		options = {
+			serialization: "default",
+			...options,
+		};
+
+		// Create data connection with proper label
+		const connectionOptions = {
+			...options,
+			// Set label based on reliability if not already set
+			label: options.label || (options.reliable === false ? 'realtime' : 'reliable'),
+		};
+		const dataConnection = new this._serializers[connectionOptions.serialization](
+			peer,
+			this,
+			node,
+			connectionOptions,
+		);
+		node._addConnection(dataConnection);
+
+		return dataConnection;
 	}
 
 	/** Clean up lost messages for a connection */
@@ -603,15 +659,16 @@ export class MeshClient extends EventEmitterWithError<
 	/**
 	 * Broadcasts data to all connected nodes.
 	 * @param data The data to send to all connected peers
+	 * @param options Options for sending (e.g., { reliable: false } for realtime channel)
 	 * @returns The number of nodes the data was sent to
 	 */
-	broadcast(data: any): number {
+	broadcast(data: any, options?: { reliable?: boolean }): number {
 		let sentCount = 0;
 
 		for (const [peerId, node] of this._remoteNodes) {
 			if (node.open) {
 				try {
-					node.send(data);
+					node.send(data, options);
 					sentCount++;
 				} catch (error) {
 					logger.warn(`Failed to send broadcast to ${peerId}:`, error);
@@ -692,7 +749,8 @@ export class MeshClient extends EventEmitterWithError<
 		};
 
 		try {
-			node.send(message);
+			// Always use reliable channel for mesh handshakes
+			node.send(message, { reliable: true });
 			handshake.sent = true;
 			logger.log(
 				`Sent mesh handshake to ${node.peer} with ${myPeers.length} peers`,
@@ -732,11 +790,12 @@ export class MeshClient extends EventEmitterWithError<
 		// Send acknowledgment if requested
 		if (data.requiresAck) {
 			try {
+				// Always use reliable channel for mesh handshake acknowledgments
 				node.send({
 					__peerJSInternal: true,
 					type: "mesh-peers-ack",
 					timestamp: data.timestamp,
-				});
+				}, { reliable: true });
 				logger.log(`Sent mesh-peers-ack to ${node.peer}`);
 			} catch (error) {
 				logger.warn(`Failed to send mesh-peers-ack to ${node.peer}:`, error);

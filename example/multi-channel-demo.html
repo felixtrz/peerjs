@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi-Channel Demo</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .reliable { background-color: #e8f5e8; }
+        .realtime { background-color: #e8f0ff; }
+        #messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .reliable-msg { background-color: #d4edda; }
+        .realtime-msg { background-color: #cce5ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Multi-Channel PeerJS Demo</h1>
+        
+        <div class="section">
+            <h3>Connection</h3>
+            <div>Your ID: <span id="my-id">Connecting...</span></div>
+            <div>
+                <input type="text" id="peer-id" placeholder="Enter peer ID to connect">
+                <button onclick="connectToPeer()">Connect</button>
+            </div>
+            <div>
+                <label>
+                    <input type="checkbox" id="lazy-creation" checked> 
+                    Lazy Channel Creation (default: true)
+                </label>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Send Messages</h3>
+            <div>
+                <input type="text" id="message" placeholder="Enter message">
+                <button onclick="sendReliable()" class="reliable">Send Reliable</button>
+                <button onclick="sendRealtime()" class="realtime">Send Realtime</button>
+                <button onclick="sendDefault()">Send Default</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Broadcast to All</h3>
+            <div>
+                <input type="text" id="broadcast-message" placeholder="Enter broadcast message">
+                <button onclick="broadcastReliable()" class="reliable">Broadcast Reliable</button>
+                <button onclick="broadcastRealtime()" class="realtime">Broadcast Realtime</button>
+                <button onclick="broadcastDefault()">Broadcast Default</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Messages</h3>
+            <div id="messages"></div>
+        </div>
+
+        <div class="section">
+            <h3>Connected Nodes</h3>
+            <div id="connected-nodes">None</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { MeshClient } from './index.js';
+
+        let mesh;
+        const messagesDiv = document.getElementById('messages');
+        const connectedNodesDiv = document.getElementById('connected-nodes');
+
+        function addMessage(sender, message, type = 'default') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            if (type === 'reliable') {
+                messageDiv.className += ' reliable-msg';
+            } else if (type === 'realtime') {
+                messageDiv.className += ' realtime-msg';
+            }
+            
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${message} <em>(${type})</em>`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateConnectedNodes() {
+            const nodes = Array.from(mesh.nodes.keys());
+            connectedNodesDiv.textContent = nodes.length > 0 ? nodes.join(', ') : 'None';
+        }
+
+        function initializeMesh() {
+            const lazyCreation = document.getElementById('lazy-creation').checked;
+            
+            mesh = new MeshClient(null, {
+                lazyDataChannelCreation: lazyCreation
+            });
+
+            window.mesh = mesh; // For debugging
+
+            mesh.on('open', (id) => {
+                document.getElementById('my-id').textContent = id;
+                addMessage('System', `Connected with ID: ${id}`, 'system');
+                addMessage('System', `Lazy channel creation: ${lazyCreation}`, 'system');
+            });
+
+            mesh.on('connection', (node) => {
+                addMessage('System', `${node.peer} connected`, 'system');
+                updateConnectedNodes();
+
+                node.on('data', (data) => {
+                    // Try to determine message type based on content
+                    let type = 'default';
+                    if (typeof data === 'string') {
+                        if (data.includes('[RELIABLE]')) {
+                            type = 'reliable';
+                        } else if (data.includes('[REALTIME]')) {
+                            type = 'realtime';
+                        }
+                    }
+                    addMessage(node.peer, data, type);
+                });
+
+                node.on('close', () => {
+                    addMessage('System', `${node.peer} disconnected`, 'system');
+                    updateConnectedNodes();
+                });
+            });
+        }
+
+        // Global functions for buttons
+        window.connectToPeer = function() {
+            const peerId = document.getElementById('peer-id').value.trim();
+            if (peerId) {
+                const node = mesh.connect(peerId);
+                addMessage('System', `Connecting to ${peerId}...`, 'system');
+                
+                node.on('open', () => {
+                    addMessage('System', `Connected to ${peerId}`, 'system');
+                    updateConnectedNodes();
+                });
+            }
+        };
+
+        window.sendReliable = function() {
+            const message = document.getElementById('message').value.trim();
+            if (message && mesh.nodes.size > 0) {
+                const fullMessage = `[RELIABLE] ${message}`;
+                for (const node of mesh.nodes.values()) {
+                    node.send(fullMessage, { reliable: true });
+                }
+                addMessage('Me', fullMessage, 'reliable');
+                document.getElementById('message').value = '';
+            }
+        };
+
+        window.sendRealtime = function() {
+            const message = document.getElementById('message').value.trim();
+            if (message && mesh.nodes.size > 0) {
+                const fullMessage = `[REALTIME] ${message}`;
+                for (const node of mesh.nodes.values()) {
+                    node.send(fullMessage, { reliable: false });
+                }
+                addMessage('Me', fullMessage, 'realtime');
+                document.getElementById('message').value = '';
+            }
+        };
+
+        window.sendDefault = function() {
+            const message = document.getElementById('message').value.trim();
+            if (message && mesh.nodes.size > 0) {
+                for (const node of mesh.nodes.values()) {
+                    node.send(message);
+                }
+                addMessage('Me', message, 'default');
+                document.getElementById('message').value = '';
+            }
+        };
+
+        window.broadcastReliable = function() {
+            const message = document.getElementById('broadcast-message').value.trim();
+            if (message) {
+                const fullMessage = `[RELIABLE] ${message}`;
+                const count = mesh.broadcast(fullMessage, { reliable: true });
+                addMessage('Me', `${fullMessage} (broadcasted to ${count} peers)`, 'reliable');
+                document.getElementById('broadcast-message').value = '';
+            }
+        };
+
+        window.broadcastRealtime = function() {
+            const message = document.getElementById('broadcast-message').value.trim();
+            if (message) {
+                const fullMessage = `[REALTIME] ${message}`;
+                const count = mesh.broadcast(fullMessage, { reliable: false });
+                addMessage('Me', `${fullMessage} (broadcasted to ${count} peers)`, 'realtime');
+                document.getElementById('broadcast-message').value = '';
+            }
+        };
+
+        window.broadcastDefault = function() {
+            const message = document.getElementById('broadcast-message').value.trim();
+            if (message) {
+                const count = mesh.broadcast(message);
+                addMessage('Me', `${message} (broadcasted to ${count} peers)`, 'default');
+                document.getElementById('broadcast-message').value = '';
+            }
+        };
+
+        // Initialize on page load
+        initializeMesh();
+    </script>
+</body>
+</html>

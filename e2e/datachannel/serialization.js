@@ -29,7 +29,7 @@ const serialization = params.get("serialization");
 	});
 	const received = [];
 	/**
-	 * @type {import("../../src/index.js").Node}
+	 * @type {import("../../src/index.js").RemoteNode}
 	 */
 	let node;
 	peer

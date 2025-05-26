@@ -305,7 +305,7 @@ describe("Mesh Networking", () => {
 				peers: ["client-c", "client-d"],
 				timestamp: expect.any(Number),
 				requiresAck: true
-			});
+			}, { reliable: true });
 
 			// Clear timers
 			jest.clearAllTimers();
@@ -341,7 +341,7 @@ describe("Mesh Networking", () => {
 				peers: [],
 				timestamp: expect.any(Number),
 				requiresAck: true
-			});
+			}, { reliable: true });
 		});
 
 		it("should handle mesh-peers acknowledgments", () => {
@@ -372,7 +372,7 @@ describe("Mesh Networking", () => {
 				__peerJSInternal: true,
 				type: "mesh-peers-ack",
 				timestamp: 12345
-			});
+			}, { reliable: true });
 		});
 
 		it("should retry mesh handshake on timeout", () => {
@@ -409,7 +409,7 @@ describe("Mesh Networking", () => {
 				peers: [],
 				timestamp: expect.any(Number),
 				requiresAck: true
-			});
+			}, { reliable: true });
 
 			jest.clearAllTimers();
 			jest.useRealTimers();
@@ -446,8 +446,8 @@ describe("Mesh Networking", () => {
 
 			// Should have sent to 2 nodes (B and C, not D because it's not open)
 			expect(sentCount).toBe(2);
-			expect(mockNodeB.send).toHaveBeenCalledWith(message);
-			expect(mockNodeC.send).toHaveBeenCalledWith(message);
+			expect(mockNodeB.send).toHaveBeenCalledWith(message, undefined);
+			expect(mockNodeC.send).toHaveBeenCalledWith(message, undefined);
 			expect(mockNodeD.send).not.toHaveBeenCalled();
 		});
 
@@ -486,8 +486,8 @@ describe("Mesh Networking", () => {
 
 			// Should have attempted to send to both, but only counted successful sends
 			expect(sentCount).toBe(1);
-			expect(mockNodeWithError.send).toHaveBeenCalledWith("Test message");
-			expect(mockNodeNormal.send).toHaveBeenCalledWith("Test message");
+			expect(mockNodeWithError.send).toHaveBeenCalledWith("Test message", undefined);
+			expect(mockNodeNormal.send).toHaveBeenCalledWith("Test message", undefined);
 			
 			// Should have logged the error
 			expect(warnSpy).toHaveBeenCalledWith(
@@ -510,16 +510,16 @@ describe("Mesh Networking", () => {
 			// Test with object
 			const objectData = { type: "update", value: 42 };
 			clientA.broadcast(objectData);
-			expect(mockNode.send).toHaveBeenCalledWith(objectData);
+			expect(mockNode.send).toHaveBeenCalledWith(objectData, undefined);
 
 			// Test with array
 			const arrayData = [1, 2, 3, "test"];
 			clientA.broadcast(arrayData);
-			expect(mockNode.send).toHaveBeenCalledWith(arrayData);
+			expect(mockNode.send).toHaveBeenCalledWith(arrayData, undefined);
 
 			// Test with null
 			clientA.broadcast(null);
-			expect(mockNode.send).toHaveBeenCalledWith(null);
+			expect(mockNode.send).toHaveBeenCalledWith(null, undefined);
 		});
 
 		it("should not interfere with mesh networking messages", () => {
@@ -537,7 +537,7 @@ describe("Mesh Networking", () => {
 
 			// Should still send it (broadcast doesn't filter messages)
 			expect(sentCount).toBe(1);
-			expect(mockNode.send).toHaveBeenCalledWith(meshLikeMessage);
+			expect(mockNode.send).toHaveBeenCalledWith(meshLikeMessage, undefined);
 		});
 	});
 });

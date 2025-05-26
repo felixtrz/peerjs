@@ -3,6 +3,7 @@ import type { DataConnection } from "./p2p/data-connection";
 import type { MeshClient } from "./mesh-client";
 import type { ServerMessage } from "./server/server-message";
 import logger from "./utils/logger";
+import type { MeshClientConnectOption } from "./options";
 
 export interface RemoteNodeEvents extends EventsWithError<string> {
 	/**
@@ -37,6 +38,11 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	private _lostMessages: Map<string, ServerMessage[]> = new Map(); // connectionId => [list of messages]
 	private _ping: number | null = null;
 	private _pingInterval: ReturnType<typeof setInterval> | null = null;
+
+	// Multi-channel support
+	private readonly _channelMap: Map<'reliable' | 'realtime', DataConnection> = new Map();
+	private _defaultChannelType: 'reliable' | 'realtime' = 'reliable';
+	private _connectOptions?: MeshClientConnectOption;
 
 	/**
 	 * The ID of the remote peer.
@@ -82,10 +88,14 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		peer: string,
 		private provider: MeshClient,
 		metadata?: any,
+		options?: MeshClientConnectOption,
 	) {
 		super();
 		this.peer = peer;
 		this.metadata = metadata;
+		this._connectOptions = options;
+		// Set default channel type based on options
+		this._defaultChannelType = options?.reliable === false ? 'realtime' : 'reliable';
 	}
 
 	/**
@@ -111,6 +121,11 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		}
 
 		this._connections.push(connection);
+
+		// Map connection to channel type if it has a specific label
+		if (connection.label === 'reliable' || connection.label === 'realtime') {
+			this._channelMap.set(connection.label as 'reliable' | 'realtime', connection);
+		}
 
 		// Set up event handlers for this connection
 		connection.on("data", (data) => {
@@ -156,6 +171,14 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		const index = this._connections.indexOf(connection);
 		if (index !== -1) {
 			this._connections.splice(index, 1);
+		}
+
+		// Remove from channel map if applicable
+		for (const [channelType, conn] of this._channelMap.entries()) {
+			if (conn === connection) {
+				this._channelMap.delete(channelType);
+				break;
+			}
 		}
 
 		// Clean up lost messages for this connection
@@ -206,27 +229,41 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 					return;
 				}
 
-				logger.log(
-					`Deduplicating connections for node ${this.peer}. Keeping one, closing ${currentOpenConnections.length - 1}`,
-				);
+				// Group connections by channel type to ensure we keep one of each type
+				const connectionsByChannelType = new Map<string, DataConnection[]>();
+				for (const conn of currentOpenConnections) {
+					// Only group by label if it's a special channel type
+					const channelType = (conn.label === 'reliable' || conn.label === 'realtime') 
+						? conn.label 
+						: 'default';
+					if (!connectionsByChannelType.has(channelType)) {
+						connectionsByChannelType.set(channelType, []);
+					}
+					connectionsByChannelType.get(channelType)!.push(conn);
+				}
 
-				// Sort connections by connectionId to ensure both peers keep the same one
-				currentOpenConnections.sort((a, b) =>
-					a.connectionId.localeCompare(b.connectionId),
-				);
-
-				// Keep the first connection, close the rest
-				for (let i = 1; i < currentOpenConnections.length; i++) {
-					currentOpenConnections[i].close();
+				// For each channel type, keep the first connection and close the rest
+				for (const [channelType, conns] of connectionsByChannelType) {
+					if (conns.length > 1) {
+						logger.log(`Deduplicating ${conns.length} connections of type '${channelType}' for node ${this.peer}`);
+						// Sort to ensure both peers keep the same one
+						conns.sort((a, b) => a.connectionId.localeCompare(b.connectionId));
+						// Keep the first, close the rest
+						for (let i = 1; i < conns.length; i++) {
+							conns[i].close();
+						}
+					}
 				}
 			}, 100); // Small delay to allow pending messages to be received
 		}
 	}
 
 	/**
-	 * Sends data to the remote peer using the first available connection.
+	 * Sends data to the remote peer using the appropriate channel.
+	 * @param data - The data to send
+	 * @param options - Options for sending (e.g., { reliable: false } for realtime channel)
 	 */
-	send(data: any): void {
+	send(data: any, options?: { reliable?: boolean }): void {
 		if (!this._open) {
 			this.emitError(
 				"NotOpenYet",
@@ -235,17 +272,66 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 			return;
 		}
 
-		const openConnection = this._connections.find((conn) => conn.open);
-		if (!openConnection) {
-			this.emitError(
-				"NoOpenConnection",
-				"No open connections available to send data.",
-			);
+		// Determine which channel to use
+		const channelType = options?.reliable !== undefined 
+			? (options.reliable ? 'reliable' : 'realtime')
+			: this._defaultChannelType;
+
+		// Get or create the appropriate channel
+		const connection = this._getOrCreateChannel(channelType);
+
+		if (connection && connection.open) {
+			connection.send(data);
 			return;
 		}
 
-		openConnection.send(data);
+		// If specific channel not available, fallback to any open connection
+		const openConnection = this._connections.find((conn) => conn.open);
+		if (openConnection) {
+			logger.warn(`Using fallback connection for ${channelType} message to ${this.peer}`);
+			openConnection.send(data);
+			return;
+		}
+
+		this.emitError(
+			"NoOpenConnection",
+			"No open connections available to send data.",
+		);
 	}
+
+	/**
+	 * Gets or creates a channel of the specified type.
+	 * @internal
+	 */
+	private _getOrCreateChannel(channelType: 'reliable' | 'realtime'): DataConnection | null {
+		// Check if channel already exists
+		const existingChannel = this._channelMap.get(channelType);
+		if (existingChannel && !existingChannel.open && this._connections.includes(existingChannel)) {
+			// Channel exists and is still in connections list
+			return existingChannel;
+		}
+		if (existingChannel && existingChannel.open) {
+			return existingChannel;
+		}
+
+		// Create new channel lazily
+		logger.log(`Lazily creating ${channelType} channel to ${this.peer}`);
+		const options: MeshClientConnectOption = {
+			...this._connectOptions,
+			label: channelType,
+			reliable: channelType === 'reliable',
+		};
+
+		// Create connection through provider
+		const connection = this.provider._createDataConnection(this.peer, options);
+		if (connection) {
+			this._channelMap.set(channelType, connection);
+			// The connection will be added to this node automatically by the provider
+		}
+
+		return connection;
+	}
+
 
 	/**
 	 * Closes all connections to the remote peer and destroys the node.
