@@ -5,5 +5,3 @@ import { MeshClient } from "./mesh-client";
 	Peer: MeshClient, // Keep Peer name for backwards compatibility
 	util,
 };
-/** @deprecated Should use peerjs namespace */
-(<any>window).Peer = MeshClient;

@@ -39,12 +39,6 @@ class MeshClientOptions implements MeshClientJSOption {
 	 * The path where your self-hosted PeerServer is running. Defaults to `'/'`
 	 */
 	path?: string;
-	/**
-	 * API key for the PeerServer.
-	 * This is not used anymore.
-	 * @deprecated
-	 */
-	key?: string;
 	token?: string;
 	/**
 	 * Configuration hash passed to RTCPeerConnection.
@@ -234,7 +228,6 @@ export class MeshClient extends EventEmitterWithError<
 			host: util.CLOUD_HOST,
 			port: util.CLOUD_PORT,
 			path: "/",
-			key: MeshClient.DEFAULT_KEY,
 			token: util.randomToken(),
 			config: util.defaultConfig,
 			referrerPolicy: "strict-origin-when-cross-origin",
@@ -313,7 +306,7 @@ export class MeshClient extends EventEmitterWithError<
 			this._options.host!,
 			this._options.port!,
 			this._options.path!,
-			this._options.key!,
+			MeshClient.DEFAULT_KEY,
 			this._options.pingInterval,
 		);
 
@@ -378,7 +371,7 @@ export class MeshClient extends EventEmitterWithError<
 			case ServerMessageType.InvalidKey: // The given API key cannot be found.
 				this._abort(
 					MeshClientErrorType.InvalidKey,
-					`API KEY "${this._options.key}" is invalid`,
+					`API KEY "${MeshClient.DEFAULT_KEY}" is invalid`,
 				);
 				break;
 			case ServerMessageType.Leave: // Another peer has closed its connection to this peer.
@@ -563,14 +556,12 @@ export class MeshClient extends EventEmitterWithError<
 		const connectionOptions = {
 			...options,
 			// Set label based on reliability if not already set
-			label: options.label || (options.reliable === false ? 'realtime' : 'reliable'),
+			label:
+				options.label || (options.reliable === false ? "realtime" : "reliable"),
 		};
-		const dataConnection = new this._serializers[connectionOptions.serialization](
-			peer,
-			this,
-			node,
-			connectionOptions,
-		);
+		const dataConnection = new this._serializers[
+			connectionOptions.serialization
+		](peer, this, node, connectionOptions);
 		node._addConnection(dataConnection);
 
 		// Clean up connection attempts when the node closes or errors
@@ -598,7 +589,10 @@ export class MeshClient extends EventEmitterWithError<
 	 * Creates a data connection to a peer.
 	 * @internal Used by RemoteNode for lazy channel creation
 	 */
-	_createDataConnection(peer: string, options: MeshClientConnectOption): DataConnection | null {
+	_createDataConnection(
+		peer: string,
+		options: MeshClientConnectOption,
+	): DataConnection | null {
 		if (this.disconnected) {
 			logger.warn("Cannot create connection when disconnected from server");
 			return null;
@@ -620,14 +614,12 @@ export class MeshClient extends EventEmitterWithError<
 		const connectionOptions = {
 			...options,
 			// Set label based on reliability if not already set
-			label: options.label || (options.reliable === false ? 'realtime' : 'reliable'),
+			label:
+				options.label || (options.reliable === false ? "realtime" : "reliable"),
 		};
-		const dataConnection = new this._serializers[connectionOptions.serialization](
-			peer,
-			this,
-			node,
-			connectionOptions,
-		);
+		const dataConnection = new this._serializers[
+			connectionOptions.serialization
+		](peer, this, node, connectionOptions);
 		node._addConnection(dataConnection);
 
 		return dataConnection;
@@ -791,11 +783,14 @@ export class MeshClient extends EventEmitterWithError<
 		if (data.requiresAck) {
 			try {
 				// Always use reliable channel for mesh handshake acknowledgments
-				node.send({
-					__peerJSInternal: true,
-					type: "mesh-peers-ack",
-					timestamp: data.timestamp,
-				}, { reliable: true });
+				node.send(
+					{
+						__peerJSInternal: true,
+						type: "mesh-peers-ack",
+						timestamp: data.timestamp,
+					},
+					{ reliable: true },
+				);
 				logger.log(`Sent mesh-peers-ack to ${node.peer}`);
 			} catch (error) {
 				logger.warn(`Failed to send mesh-peers-ack to ${node.peer}:`, error);

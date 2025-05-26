@@ -34,17 +34,6 @@ describe("Peer", () => {
 		});
 	});
 
-	describe("after construct with parameters", () => {
-		it("should contains id and key", () => {
-			const peer = new MeshClient("1", { key: "anotherKey" });
-
-			expect(peer.id).toBe("1");
-			expect(peer.options.key).toBe("anotherKey");
-
-			peer.destroy();
-		});
-	});
-
 	describe("reconnect", () => {
 		let mockServer;
 
@@ -166,10 +155,9 @@ describe("Peer", () => {
 			peer1.destroy();
 
 			// Only options
-			const peer2 = new MeshClient({ debug: 1, key: "test-key" });
+			const peer2 = new MeshClient({ debug: 1 });
 			expect(peer2.id).toBeNull();
 			expect(peer2.options.debug).toBe(1);
-			expect(peer2.options.key).toBe("test-key");
 			peer2.destroy();
 
 			// ID and options
