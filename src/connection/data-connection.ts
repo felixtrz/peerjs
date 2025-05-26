@@ -6,14 +6,14 @@ import {
 	DataConnectionErrorType,
 	ServerMessageType,
 } from "../utils/enums";
-import type { MeshClient } from "../mesh-client";
-import type { RemoteNode } from "../remote-node";
+import type { MeshClient } from "../mesh/client";
+import type { RemoteNode } from "../mesh/node";
 import type { ServerMessage } from "../server/server-message";
 import {
 	EventEmitterWithError,
 	type EventsWithError,
 	MeshClientError,
-} from "./mesh-client-error";
+} from "../utils/error";
 import { randomToken } from "../utils/utils";
 
 export interface BaseConnectionEvents<

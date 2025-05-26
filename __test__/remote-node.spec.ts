@@ -1,6 +1,6 @@
 import "./setup";
-import { RemoteNode } from "../src/remote-node";
-import { MeshClient } from "../src/mesh-client";
+import { RemoteNode } from "../src/mesh/node";
+import { MeshClient } from "../src/mesh/client";
 import { EventEmitter } from "events";
 import { expect, beforeEach, describe, it, jest } from "@jest/globals";
 
@@ -18,7 +18,12 @@ class MockDataConnection extends EventEmitter {
 
 	_open = false;
 
-	constructor(peer: string, provider: MeshClient, node: RemoteNode, options: any = {}) {
+	constructor(
+		peer: string,
+		provider: MeshClient,
+		node: RemoteNode,
+		options: any = {},
+	) {
 		super();
 		this.peer = peer;
 		this.provider = provider;
@@ -56,19 +61,31 @@ describe("RemoteNode", () => {
 
 	beforeEach(() => {
 		meshClient = new MeshClient();
-		remoteNode = new RemoteNode("remote-peer-id", meshClient, { test: "metadata" });
-		mockConnection1 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
-			connectionId: "conn1",
+		remoteNode = new RemoteNode("remote-peer-id", meshClient, {
+			test: "metadata",
 		});
-		mockConnection2 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
-			connectionId: "conn2",
-		});
+		mockConnection1 = new MockDataConnection(
+			"remote-peer-id",
+			meshClient,
+			remoteNode,
+			{
+				connectionId: "conn1",
+			},
+		);
+		mockConnection2 = new MockDataConnection(
+			"remote-peer-id",
+			meshClient,
+			remoteNode,
+			{
+				connectionId: "conn2",
+			},
+		);
 	});
 
 	afterEach(() => {
 		// Ensure we're using real timers for cleanup
 		jest.useRealTimers();
-		
+
 		if (remoteNode && !remoteNode.destroyed) {
 			remoteNode.close();
 		}
@@ -282,12 +299,22 @@ describe("RemoteNode", () => {
 			// Mock peer ID to be larger than remote peer ID
 			Object.defineProperty(meshClient, "id", { value: "z-larger-id" });
 
-			const connection1 = new MockDataConnection("a-smaller-id", meshClient, remoteNode, {
-				connectionId: "conn1",
-			});
-			const connection2 = new MockDataConnection("a-smaller-id", meshClient, remoteNode, {
-				connectionId: "conn2",
-			});
+			const connection1 = new MockDataConnection(
+				"a-smaller-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn1",
+				},
+			);
+			const connection2 = new MockDataConnection(
+				"a-smaller-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn2",
+				},
+			);
 
 			const closeSpy1 = jest.spyOn(connection1, "close");
 			const closeSpy2 = jest.spyOn(connection2, "close");
@@ -321,12 +348,22 @@ describe("RemoteNode", () => {
 			// Mock peer ID to be smaller than remote peer ID
 			Object.defineProperty(meshClient, "id", { value: "a-smaller-id" });
 
-			const connection1 = new MockDataConnection("z-larger-id", meshClient, remoteNode, {
-				connectionId: "conn1",
-			});
-			const connection2 = new MockDataConnection("z-larger-id", meshClient, remoteNode, {
-				connectionId: "conn2",
-			});
+			const connection1 = new MockDataConnection(
+				"z-larger-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn1",
+				},
+			);
+			const connection2 = new MockDataConnection(
+				"z-larger-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn2",
+				},
+			);
 
 			const closeSpy1 = jest.spyOn(connection1, "close");
 			const closeSpy2 = jest.spyOn(connection2, "close");
@@ -377,7 +414,7 @@ describe("RemoteNode", () => {
 
 			remoteNode.close();
 
-			expect(removeNodeSpy).toHaveBeenCalledWith(remoteNode);
+			expect(removeNodeSpy).toHaveBeenCalledWith(remoteNode.peer);
 		});
 
 		it("should not close if already destroyed", () => {
@@ -416,8 +453,11 @@ describe("RemoteNode", () => {
 		});
 
 		it("should start ping monitoring when node opens", () => {
-			const pingStartSpy = jest.spyOn(remoteNode as any, "_startPingMonitoring");
-			
+			const pingStartSpy = jest.spyOn(
+				remoteNode as any,
+				"_startPingMonitoring",
+			);
+
 			// Add connection with peerConnection
 			mockConnection1.peerConnection = mockPeerConnection;
 			remoteNode._addConnection(mockConnection1 as any);
@@ -458,12 +498,12 @@ describe("RemoteNode", () => {
 			mockStats.set("candidate-pair-1", {
 				type: "candidate-pair",
 				state: "succeeded",
-				currentRoundTripTime: 0.020, // 20ms
+				currentRoundTripTime: 0.02, // 20ms
 			});
 			mockStats.set("candidate-pair-2", {
 				type: "candidate-pair",
 				state: "succeeded",
-				currentRoundTripTime: 0.030, // 30ms
+				currentRoundTripTime: 0.03, // 30ms
 			});
 			mockPeerConnection.getStats.mockResolvedValue(mockStats);
 
@@ -486,7 +526,9 @@ describe("RemoteNode", () => {
 		it("should handle getStats errors gracefully", async () => {
 			mockPeerConnection.getStats.mockRejectedValue(new Error("Stats failed"));
 
-			const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+			const errorSpy = jest
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
 			const pingSpy = jest.fn();
 			remoteNode.on("ping", pingSpy);
 
@@ -501,7 +543,7 @@ describe("RemoteNode", () => {
 
 			expect(pingSpy).not.toHaveBeenCalled();
 			expect(remoteNode.ping).toBeNull();
-			
+
 			errorSpy.mockRestore();
 		});
 
@@ -525,7 +567,7 @@ describe("RemoteNode", () => {
 
 		it("should update ping periodically", async () => {
 			jest.useFakeTimers();
-			
+
 			const mockStats = new Map();
 			mockStats.set("candidate-pair-1", {
 				type: "candidate-pair",
@@ -556,10 +598,9 @@ describe("RemoteNode", () => {
 
 			// Clean up before switching back to real timers
 			remoteNode.close();
-			
+
 			jest.useRealTimers();
 		});
-
 	});
 
 	describe("ping monitoring edge cases", () => {
@@ -575,15 +616,27 @@ describe("RemoteNode", () => {
 				getStats: jest.fn(),
 				iceConnectionState: "connected",
 			};
-			
+
 			meshClient = new MeshClient();
-			remoteNode = new RemoteNode("remote-peer-id", meshClient, { test: "metadata" });
-			mockConnection1 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
-				connectionId: "conn1",
+			remoteNode = new RemoteNode("remote-peer-id", meshClient, {
+				test: "metadata",
 			});
-			mockConnection2 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
-				connectionId: "conn2",
-			});
+			mockConnection1 = new MockDataConnection(
+				"remote-peer-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn1",
+				},
+			);
+			mockConnection2 = new MockDataConnection(
+				"remote-peer-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn2",
+				},
+			);
 		});
 
 		afterEach(() => {
@@ -612,7 +665,7 @@ describe("RemoteNode", () => {
 			mockStats.set("candidate-pair-1", {
 				type: "candidate-pair",
 				state: "succeeded",
-				currentRoundTripTime: 0.030,
+				currentRoundTripTime: 0.03,
 			});
 			mockPeerConnection.getStats.mockResolvedValue(mockStats);
 
@@ -637,17 +690,17 @@ describe("RemoteNode", () => {
 			mockStats.set("candidate-pair-1", {
 				type: "candidate-pair",
 				state: "failed",
-				currentRoundTripTime: 0.100,
+				currentRoundTripTime: 0.1,
 			});
 			mockStats.set("candidate-pair-2", {
 				type: "candidate-pair",
 				state: "succeeded",
-				currentRoundTripTime: 0.020,
+				currentRoundTripTime: 0.02,
 			});
 			mockStats.set("candidate-pair-3", {
 				type: "candidate-pair",
 				state: "in-progress",
-				currentRoundTripTime: 0.050,
+				currentRoundTripTime: 0.05,
 			});
 			mockPeerConnection.getStats.mockResolvedValue(mockStats);
 

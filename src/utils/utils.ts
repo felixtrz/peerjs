@@ -1,4 +1,4 @@
-import { BinaryPackChunker } from "../p2p/buffered-connection/binary-pack-chunker";
+import { BinaryPackChunker } from "../connection/buffered-connection/binary-pack-chunker";
 import * as BinaryPack from "peerjs-js-binarypack";
 import { Supports } from "./supports";
 

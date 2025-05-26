@@ -1,5 +1,5 @@
 import { EventEmitter } from "eventemitter3";
-import logger from "../utils/logger";
+import logger from "./logger";
 
 export interface EventsWithError<ErrorType extends string> {
 	error: (error: MeshClientError<`${ErrorType}`>) => void;

@@ -32,8 +32,9 @@ describe("Multi-Channel Support", () => {
 				peer: "peer1",
 			};
 			
-			// Add the mock node
+			// Add the mock node to both _remoteNodes and NetworkManager
 			(mesh1 as any)._remoteNodes.set("peer1", mockNode);
+			(mesh1 as any)._networkManager.addNode(mockNode);
 			
 			// Test reliable broadcast
 			mesh1.broadcast("test message", { reliable: true });

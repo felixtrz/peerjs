@@ -1,4 +1,4 @@
-import { MeshClient } from "../src/mesh-client";
+import { MeshClient } from "../src/mesh/client";
 import {
 	describe,
 	it,
@@ -10,7 +10,7 @@ import {
 import logger from "../src/utils/logger";
 
 // Mock the modules that depend on WebRTC
-jest.mock("../src/p2p/data-connection");
+jest.mock("../src/connection/data-connection");
 jest.mock("../src/server/api");
 jest.mock("../src/server/socket");
 
@@ -95,13 +95,7 @@ describe("Mesh Networking", () => {
 			const connectionAttempts = (clientA as any)._connectionAttempts;
 			connectionAttempts.add("client-b");
 
-			// Create a mock node
-			const mockNode = {
-				peer: "client-b",
-				close: jest.fn(),
-			};
-
-			clientA._removeNode(mockNode as any);
+			clientA._removeNode("client-b");
 			expect(connectionAttempts.has("client-b")).toBe(false);
 		});
 	});
@@ -120,6 +114,8 @@ describe("Mesh Networking", () => {
 
 			(clientA as any)._remoteNodes.set("client-b", mockNodeB);
 			(clientA as any)._remoteNodes.set("client-c", mockNodeC);
+			(clientA as any)._networkManager.addNode(mockNodeB);
+			(clientA as any)._networkManager.addNode(mockNodeC);
 
 			const connectedPeers = (clientA as any)._getConnectedPeerIds();
 			expect(connectedPeers).toEqual(["client-b"]);
@@ -199,7 +195,10 @@ describe("Mesh Networking", () => {
 
 			// Should register event handlers
 			expect(mockNode.on).toHaveBeenCalledWith("open", expect.any(Function));
-			expect(mockNode.on).toHaveBeenCalledWith("_internal_mesh_message", expect.any(Function));
+			expect(mockNode.on).toHaveBeenCalledWith(
+				"_internal_mesh_message",
+				expect.any(Function),
+			);
 		});
 
 		it("should handle mesh-peers data messages", () => {
@@ -274,14 +273,18 @@ describe("Mesh Networking", () => {
 			};
 
 			// Add some connected peers
-			(clientA as any)._remoteNodes.set("client-c", {
+			const mockNodeC = {
 				peer: "client-c",
 				open: true,
-			});
-			(clientA as any)._remoteNodes.set("client-d", {
+			};
+			const mockNodeD = {
 				peer: "client-d",
 				open: true,
-			});
+			};
+			(clientA as any)._remoteNodes.set("client-c", mockNodeC);
+			(clientA as any)._remoteNodes.set("client-d", mockNodeD);
+			(clientA as any)._networkManager.addNode(mockNodeC);
+			(clientA as any)._networkManager.addNode(mockNodeD);
 
 			// Mock timers
 			jest.useFakeTimers();
@@ -299,13 +302,16 @@ describe("Mesh Networking", () => {
 			openHandler();
 
 			// Should send peer list with acknowledgment required
-			expect(mockNode.send).toHaveBeenCalledWith({
-				__peerJSInternal: true,
-				type: "mesh-peers",
-				peers: ["client-c", "client-d"],
-				timestamp: expect.any(Number),
-				requiresAck: true
-			}, { reliable: true });
+			expect(mockNode.send).toHaveBeenCalledWith(
+				{
+					__peerJSInternal: true,
+					type: "mesh-peers",
+					peers: ["client-c", "client-d"],
+					timestamp: expect.any(Number),
+					requiresAck: true,
+				},
+				{ reliable: true },
+			);
 
 			// Clear timers
 			jest.clearAllTimers();
@@ -335,13 +341,16 @@ describe("Mesh Networking", () => {
 			openHandler();
 
 			// Should still send handshake even with empty peer list
-			expect(mockNode.send).toHaveBeenCalledWith({
-				__peerJSInternal: true,
-				type: "mesh-peers",
-				peers: [],
-				timestamp: expect.any(Number),
-				requiresAck: true
-			}, { reliable: true });
+			expect(mockNode.send).toHaveBeenCalledWith(
+				{
+					__peerJSInternal: true,
+					type: "mesh-peers",
+					peers: [],
+					timestamp: expect.any(Number),
+					requiresAck: true,
+				},
+				{ reliable: true },
+			);
 		});
 
 		it("should handle mesh-peers acknowledgments", () => {
@@ -364,15 +373,18 @@ describe("Mesh Networking", () => {
 				type: "mesh-peers",
 				peers: ["client-c"],
 				timestamp: 12345,
-				requiresAck: true
+				requiresAck: true,
 			});
 
 			// Should send acknowledgment
-			expect(mockNode.send).toHaveBeenCalledWith({
-				__peerJSInternal: true,
-				type: "mesh-peers-ack",
-				timestamp: 12345
-			}, { reliable: true });
+			expect(mockNode.send).toHaveBeenCalledWith(
+				{
+					__peerJSInternal: true,
+					type: "mesh-peers-ack",
+					timestamp: 12345,
+				},
+				{ reliable: true },
+			);
 		});
 
 		it("should retry mesh handshake on timeout", () => {
@@ -403,13 +415,16 @@ describe("Mesh Networking", () => {
 			jest.advanceTimersByTime(1000); // First retry after 1 second
 
 			// Should have retried
-			expect(mockNode.send).toHaveBeenCalledWith({
-				__peerJSInternal: true,
-				type: "mesh-peers",
-				peers: [],
-				timestamp: expect.any(Number),
-				requiresAck: true
-			}, { reliable: true });
+			expect(mockNode.send).toHaveBeenCalledWith(
+				{
+					__peerJSInternal: true,
+					type: "mesh-peers",
+					peers: [],
+					timestamp: expect.any(Number),
+					requiresAck: true,
+				},
+				{ reliable: true },
+			);
 
 			jest.clearAllTimers();
 			jest.useRealTimers();
@@ -438,6 +453,8 @@ describe("Mesh Networking", () => {
 			// Add nodes to clientA
 			(clientA as any)._remoteNodes.set("client-b", mockNodeB);
 			(clientA as any)._remoteNodes.set("client-c", mockNodeC);
+			(clientA as any)._networkManager.addNode(mockNodeB);
+			(clientA as any)._networkManager.addNode(mockNodeC);
 			(clientA as any)._remoteNodes.set("client-d", mockNodeD);
 
 			// Broadcast a message
@@ -477,6 +494,8 @@ describe("Mesh Networking", () => {
 			// Add nodes
 			(clientA as any)._remoteNodes.set("client-error", mockNodeWithError);
 			(clientA as any)._remoteNodes.set("client-normal", mockNodeNormal);
+			(clientA as any)._networkManager.addNode(mockNodeWithError);
+			(clientA as any)._networkManager.addNode(mockNodeNormal);
 
 			// Mock logger to check warning
 			const warnSpy = jest.spyOn(logger, "warn").mockImplementation(() => {});
@@ -486,13 +505,19 @@ describe("Mesh Networking", () => {
 
 			// Should have attempted to send to both, but only counted successful sends
 			expect(sentCount).toBe(1);
-			expect(mockNodeWithError.send).toHaveBeenCalledWith("Test message", undefined);
-			expect(mockNodeNormal.send).toHaveBeenCalledWith("Test message", undefined);
-			
+			expect(mockNodeWithError.send).toHaveBeenCalledWith(
+				"Test message",
+				undefined,
+			);
+			expect(mockNodeNormal.send).toHaveBeenCalledWith(
+				"Test message",
+				undefined,
+			);
+
 			// Should have logged the error
 			expect(warnSpy).toHaveBeenCalledWith(
 				expect.stringContaining("Failed to send broadcast to client-error:"),
-				expect.any(Error)
+				expect.any(Error),
 			);
 
 			warnSpy.mockRestore();
@@ -506,6 +531,7 @@ describe("Mesh Networking", () => {
 			};
 
 			(clientA as any)._remoteNodes.set("client-b", mockNode);
+			(clientA as any)._networkManager.addNode(mockNode);
 
 			// Test with object
 			const objectData = { type: "update", value: 42 };
@@ -530,6 +556,7 @@ describe("Mesh Networking", () => {
 			};
 
 			(clientA as any)._remoteNodes.set("client-b", mockNode);
+			(clientA as any)._networkManager.addNode(mockNode);
 
 			// Broadcast a message that looks like a mesh-peers message
 			const meshLikeMessage = { type: "mesh-peers", peers: ["fake-peer"] };
