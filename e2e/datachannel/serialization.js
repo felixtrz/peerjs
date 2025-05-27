@@ -1,7 +1,7 @@
 /**
- * @type {typeof import("../../src/index.js").Peer}
+ * @type {typeof import("../../src/index.js").MeshClient}
  */
-const Peer = window.peerjs.Peer;
+const MeshClient = window.linkt.MeshClient;
 
 const params = new URLSearchParams(document.location.search);
 const testfile = params.get("testfile");
@@ -22,7 +22,7 @@ const serialization = params.get("serialization");
 	const result = document.getElementById("result");
 	const errorMessage = document.getElementById("error-message");
 
-	const peer = new Peer({
+	const peer = new MeshClient({
 		debug: 3,
 		serializers,
 		key: params.get("key"),

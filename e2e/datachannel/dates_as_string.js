@@ -7,7 +7,7 @@ export const check = (received) => {
 	expect(received).to.deep.equal(dates.map((date) => date.toString()));
 };
 /**
- * @param {import("../peerjs").Node} node
+ * @param {import("../linkt").Node} node
  */
 export const send = (node) => {
 	for (const date of dates) {

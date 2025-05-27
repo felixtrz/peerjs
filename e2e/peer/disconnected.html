@@ -10,18 +10,15 @@
 		<h1>ID-TAKEN</h1>
 		<div id="messages"></div>
 		<div id="error-message"></div>
-		<script src="/dist/peerjs.js"></script>
+		<script src="/dist/linkt.js"></script>
 		<script type="application/javascript">
-			/**
-			 * @type {typeof import("../..").Peer}
-			 */
-			const Peer = window.peerjs.Peer;
+			const MeshClient = window.linkt.MeshClient;
 
 			const params = new URLSearchParams(document.location.search);
 
 			const messages = document.getElementById("messages");
 
-			const peer = new Peer({ key: params.get("key") });
+			const peer = new MeshClient({ key: params.get("key") });
 			peer
 				.once(
 					"error",

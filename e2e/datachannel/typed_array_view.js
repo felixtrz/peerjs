@@ -9,9 +9,7 @@ export const check = (received) => {
 		expect(v).to.deep.equal(typed_array_view[i]);
 	}
 };
-/**
- * @param {import("../peerjs").Node} node
- */
+
 export const send = (node) => {
 	node.send(typed_array_view);
 };

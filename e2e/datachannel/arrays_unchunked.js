@@ -9,9 +9,7 @@ import { expect } from "https://esm.sh/v126/chai@4.3.7/X-dHMvZXhwZWN0/es2021/cha
 export const check = (received) => {
 	expect(received).to.deep.equal([[], commit_data.slice(0, 2)]);
 };
-/**
- * @param {import("../peerjs").Node} node
- */
+
 export const send = (node) => {
 	node.send([]);
 	node.send(commit_data.slice(0, 2));

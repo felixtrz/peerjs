@@ -8,9 +8,7 @@ export const check = (received) => {
 		expect(received[i]).to.deep.equal(array_buffer);
 	}
 };
-/**
- * @param {import("../peerjs").Node} node
- */
+
 export const send = (node) => {
 	for (const array_buffer of array_buffers) {
 		node.send(array_buffer);

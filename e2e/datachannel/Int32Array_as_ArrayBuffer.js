@@ -8,9 +8,7 @@ export const check = (received) => {
 		expect(new Int32Array(received[i])).to.deep.equal(typed_array);
 	}
 };
-/**
- * @param {import("../peerjs").Node} node
- */
+
 export const send = (node) => {
 	for (const typed_array of int32_arrays) {
 		node.send(typed_array);

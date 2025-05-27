@@ -9,9 +9,7 @@ export const check = (received) => {
 		typed_array_view,
 	);
 };
-/**
- * @param {import("../peerjs").Node} node
- */
+
 export const send = (node) => {
 	node.send(typed_array_view);
 };

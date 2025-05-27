@@ -11,88 +11,94 @@ export class MultiChannelPage {
 		await browser.url(this.url);
 	}
 
-	async init(options: {
-		meshEnabled?: boolean;
-	} = {}) {
+	async init(
+		options: {
+			meshEnabled?: boolean;
+		} = {},
+	) {
 		// Only navigate if we're not already on the page
 		const currentUrl = await browser.getUrl();
 		if (!currentUrl.includes(this.url)) {
 			await this.go();
 		}
-		
+
 		await browser.executeAsync((opts: any, done: (result?: any) => void) => {
 			try {
-				if (!(window as any).peerjs) {
+				if (!(window as any).linkt) {
 					throw new Error("PeerJS not loaded");
 				}
-				
-				const { Peer } = (window as any).peerjs;
-				
-				if (!Peer) {
-					throw new Error("Peer not found in peerjs");
+
+				const { MeshClient } = (window as any).linkt;
+
+				if (!MeshClient) {
+					throw new Error("MeshClient not found in linkt");
 				}
-				
-				(window as any).mesh = new Peer(null, {
+
+				(window as any).mesh = new MeshClient(null, {
 					meshEnabled: opts.meshEnabled ?? true,
 				});
 
-			(window as any).messages = [];
-			(window as any).internalMessages = [];
-			(window as any).consoleWarnings = [];
-			(window as any).lastUsedChannelType = null;
-			(window as any).channelCreationFailures = new Set();
-			(window as any).connectionOpen = false;
+				(window as any).messages = [];
+				(window as any).internalMessages = [];
+				(window as any).consoleWarnings = [];
+				(window as any).lastUsedChannelType = null;
+				(window as any).channelCreationFailures = new Set();
+				(window as any).connectionOpen = false;
 
-			// Override console.warn to capture warnings
-			const originalWarn = console.warn;
-			console.warn = (...args: any[]) => {
-				(window as any).consoleWarnings.push(args.join(" "));
-				originalWarn(...args);
-			};
+				// Override console.warn to capture warnings
+				const originalWarn = console.warn;
+				console.warn = (...args: any[]) => {
+					(window as any).consoleWarnings.push(args.join(" "));
+					originalWarn(...args);
+				};
 
-			// Set up event handlers
-			(window as any).mesh.on("open", (id: string) => {
-				(window as any).meshId = id;
-				done();
-			});
-
-			(window as any).mesh.on("connection", (node: any) => {
-				(window as any).currentNode = node;
-				
-				// Wait for node to actually open before marking connection as open
-				node.on("open", () => {
-					(window as any).connectionOpen = true;
-				});
-				
-				node.on("data", (data: any) => {
-					(window as any).messages.push(data);
+				// Set up event handlers
+				(window as any).mesh.on("open", (id: string) => {
+					(window as any).meshId = id;
+					done();
 				});
 
-				// Monitor internal messages if requested
-				node.on("_internal_mesh_message", (data: any) => {
-					(window as any).internalMessages.push({
-						type: data.type,
-						channel: "reliable",
-						data: data,
+				(window as any).mesh.on("connection", (node: any) => {
+					(window as any).currentNode = node;
+
+					// Wait for node to actually open before marking connection as open
+					node.on("open", () => {
+						(window as any).connectionOpen = true;
+					});
+
+					node.on("data", (data: any) => {
+						(window as any).messages.push(data);
+					});
+
+					// Monitor internal messages if requested
+					node.on("_internal_mesh_message", (data: any) => {
+						(window as any).internalMessages.push({
+							type: data.type,
+							channel: "reliable",
+							data: data,
+						});
 					});
 				});
-			});
 
-			// Helper functions
-			(window as any).getChannelCount = () => {
-				if (!(window as any).currentNode) return 0;
-				return (window as any).currentNode._channelMap.size;
-			};
-
-			(window as any).monitorChannelUsage = () => {
-				if (!(window as any).currentNode) return;
-				
-				const originalSend = (window as any).currentNode.send;
-				(window as any).currentNode.send = function(data: any, options: any) {
-					(window as any).lastUsedChannelType = options?.reliable === false ? "realtime" : "reliable";
-					return originalSend.call(this, data, options);
+				// Helper functions
+				(window as any).getChannelCount = () => {
+					if (!(window as any).currentNode) return 0;
+					return (window as any).currentNode._channelMap.size;
 				};
-			};
+
+				(window as any).monitorChannelUsage = () => {
+					if (!(window as any).currentNode) return;
+
+					const originalSend = (window as any).currentNode.send;
+					(window as any).currentNode.send = function (
+						data: any,
+						options: any,
+					) {
+						(window as any).lastUsedChannelType =
+							options?.reliable === false ? "realtime" : "reliable";
+						return originalSend.call(this, data, options);
+					};
+				};
 			} catch (error: any) {
 				done({ error: error.message });
 			}
@@ -103,24 +109,31 @@ export class MultiChannelPage {
 		return await browser.execute(() => (window as any).meshId);
 	}
 
-	async connect(peerId: string, options: { reliable?: boolean } = {}): Promise<void> {
-		await browser.execute((peerId: string, options: any) => {
-			const node = (window as any).mesh.connect(peerId, options);
-			(window as any).currentNode = node;
-			
-			// Set up monitoring
-			if ((window as any).monitorChannelUsage) {
-				(window as any).monitorChannelUsage();
-			}
-			
-			node.on("open", () => {
-				(window as any).connectionOpen = true;
-			});
+	async connect(
+		peerId: string,
+		options: { reliable?: boolean } = {},
+	): Promise<void> {
+		await browser.execute(
+			(peerId: string, options: any) => {
+				const node = (window as any).mesh.connect(peerId, options);
+				(window as any).currentNode = node;
 
-			node.on("data", (data: any) => {
-				(window as any).messages.push(data);
-			});
-		}, peerId, options);
+				// Set up monitoring
+				if ((window as any).monitorChannelUsage) {
+					(window as any).monitorChannelUsage();
+				}
+
+				node.on("open", () => {
+					(window as any).connectionOpen = true;
+				});
+
+				node.on("data", (data: any) => {
+					(window as any).messages.push(data);
+				});
+			},
+			peerId,
+			options,
+		);
 	}
 
 	async waitForConnection(): Promise<void> {
@@ -135,7 +148,7 @@ export class MultiChannelPage {
 							id: conn.connectionId,
 							open: conn.open,
 							type: conn.type,
-							label: conn.label
+							label: conn.label,
 						}));
 					}
 					return {
@@ -144,7 +157,7 @@ export class MultiChannelPage {
 						nodeOpen: node ? node.open : false,
 						nodePeer: node ? node.peer : null,
 						connectionCount: node ? node._connections.length : 0,
-						connectionStates
+						connectionStates,
 					};
 				});
 				// Wait for either the node to be open OR connectionOpen flag
@@ -153,49 +166,73 @@ export class MultiChannelPage {
 			},
 			{
 				timeout: 10000,
-				timeoutMsg: "Connection did not open within 10 seconds"
-			}
+				timeoutMsg: "Connection did not open within 10 seconds",
+			},
 		);
 		// Additional wait to ensure both sides are ready
 		await browser.pause(100);
 	}
 
-	async sendMessage(message: string, options?: { reliable?: boolean }): Promise<void> {
-		await browser.execute((message: string, options: any) => {
-			const node = (window as any).currentNode;
-			if (!node) {
-				throw new Error("No currentNode set");
-			}
-			// Check if we have any open connections
-			const hasOpenConnection = node._connections && node._connections.some((conn: any) => conn.open);
-			if (!hasOpenConnection) {
-				throw new Error(`No open connections. Node state: ${JSON.stringify({
-					open: node.open,
-					peer: node.peer,
-					connectionCount: node._connections ? node._connections.length : 0,
-					connectionStates: node._connections ? node._connections.map((c: any) => ({id: c.connectionId, open: c.open})) : []
-				})}`);
-			}
-			node.send(message, options);
-		}, message, options);
+	async sendMessage(
+		message: string,
+		options?: { reliable?: boolean },
+	): Promise<void> {
+		await browser.execute(
+			(message: string, options: any) => {
+				const node = (window as any).currentNode;
+				if (!node) {
+					throw new Error("No currentNode set");
+				}
+				// Check if we have any open connections
+				const hasOpenConnection =
+					node._connections && node._connections.some((conn: any) => conn.open);
+				if (!hasOpenConnection) {
+					throw new Error(
+						`No open connections. Node state: ${JSON.stringify({
+							open: node.open,
+							peer: node.peer,
+							connectionCount: node._connections ? node._connections.length : 0,
+							connectionStates: node._connections
+								? node._connections.map((c: any) => ({
+										id: c.connectionId,
+										open: c.open,
+									}))
+								: [],
+						})}`,
+					);
+				}
+				node.send(message, options);
+			},
+			message,
+			options,
+		);
 	}
 
-	async broadcast(message: string, options?: { reliable?: boolean }): Promise<void> {
-		await browser.execute((message: string, options: any) => {
-			(window as any).mesh.broadcast(message, options);
-		}, message, options);
+	async broadcast(
+		message: string,
+		options?: { reliable?: boolean },
+	): Promise<void> {
+		await browser.execute(
+			(message: string, options: any) => {
+				(window as any).mesh.broadcast(message, options);
+			},
+			message,
+			options,
+		);
 	}
 
 	async waitForMessage(): Promise<string> {
 		await browser.waitUntil(
 			async () => {
-				const msgCount = await browser.execute(() => (window as any).messages.length);
+				const msgCount = await browser.execute(
+					() => (window as any).messages.length,
+				);
 				return msgCount > 0;
 			},
 			{
 				timeout: 5000,
-				timeoutMsg: "Message not received within 5 seconds"
-			}
+				timeoutMsg: "Message not received within 5 seconds",
+			},
 		);
 
 		return await browser.execute(() => {
@@ -208,7 +245,9 @@ export class MultiChannelPage {
 	}
 
 	async getLastUsedChannelType(): Promise<string> {
-		return await browser.execute(() => (window as any).lastUsedChannelType || "");
+		return await browser.execute(
+			() => (window as any).lastUsedChannelType || "",
+		);
 	}
 
 	async getConsoleWarnings(): Promise<string[]> {
@@ -218,11 +257,13 @@ export class MultiChannelPage {
 	async mockChannelCreationFailure(channelType: string): Promise<void> {
 		await browser.execute((type: string) => {
 			(window as any).channelCreationFailures.add(type);
-			
+
 			// Override _getOrCreateChannel to simulate failure
 			if ((window as any).currentNode) {
 				const original = (window as any).currentNode._getOrCreateChannel;
-				(window as any).currentNode._getOrCreateChannel = function(channelType: any) {
+				(window as any).currentNode._getOrCreateChannel = function (
+					channelType: any,
+				) {
 					if ((window as any).channelCreationFailures.has(channelType)) {
 						return null;
 					}
@@ -232,12 +273,14 @@ export class MultiChannelPage {
 		}, channelType);
 	}
 
-	async getInternalMessages(): Promise<Array<{ type: string; channel: string; data: any }>> {
+	async getInternalMessages(): Promise<
+		Array<{ type: string; channel: string; data: any }>
+	> {
 		return await browser.execute(() => (window as any).internalMessages);
 	}
 }
 
 // Export as default for the import style used in tests
 export default {
-	MultiChannelPage
+	MultiChannelPage,
 };

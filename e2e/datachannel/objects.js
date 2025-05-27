@@ -6,9 +6,7 @@ export const check = (received) => {
 	expect(received).to.be.an("array").with.lengthOf(commit_data.length);
 	expect(received).to.deep.equal(commit_data);
 };
-/**
- * @param {import("../peerjs").Node} node
- */
+
 export const send = (node) => {
 	for (const commit of commit_data) {
 		node.send(commit);

@@ -6,9 +6,7 @@ export const check = (received) => {
 	console.log(dates.map((date) => date.toString()));
 	expect(received).to.deep.equal(dates.map((date) => date.toJSON()));
 };
-/**
- * @param {import("../peerjs").Node} node
- */
+
 export const send = (node) => {
 	for (const date of dates) {
 		node.send(date);

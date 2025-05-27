@@ -10,17 +10,14 @@
 		<h1>ID-TAKEN</h1>
 		<div id="messages"></div>
 		<div id="error-message"></div>
-		<script src="/dist/peerjs.js"></script>
+		<script src="/dist/linkt.js"></script>
 		<script type="application/javascript">
-			/**
-			 * @type {typeof import("../..").Peer}
-			 */
-			const Peer = window.peerjs.Peer;
+			const MeshClient = window.linkt.MeshClient;
 
 			const messages = document.getElementById("messages");
 			const errorMessage = document.getElementById("error-message");
 
-			new Peer({
+			new MeshClient({
 				host: "thisserverwillneverexist.example.com",
 			}).once(
 				"error",

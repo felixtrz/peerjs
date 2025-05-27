@@ -8,9 +8,7 @@ export const check = (received) => {
 		expect(new Uint8Array(received[i])).to.deep.equal(typed_array);
 	}
 };
-/**
- * @param {import("../peerjs").Node} node
- */
+
 export const send = (node) => {
 	for (const typed_array of uint8_arrays) {
 		node.send(typed_array);
