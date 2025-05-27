@@ -29,6 +29,16 @@ export interface RemoteNodeEvents extends EventsWithError<string> {
 	 * Emitted when the ping value is updated.
 	 */
 	ping: (latency: number) => void;
+	/**
+	 * Emitted when ping discovery information is received from a peer.
+	 */
+	"ping-discovery": (data: {
+		ping: number | null;
+		peers: string[];
+		timestamp: number;
+		senderId: string | null;
+		remotePeer: string;
+	}) => void;
 }
 
 /**
@@ -438,7 +448,9 @@ export class RemoteNode extends EventEmitterWithError<
 			data &&
 			typeof data === "object" &&
 			data.__peerJSInternal === true &&
-			(data.type === "mesh-peers" || data.type === "mesh-peers-ack")
+			(data.type === "mesh-peers" ||
+				data.type === "mesh-peers-ack" ||
+				data.type === "ping-discovery")
 		);
 	}
 
@@ -447,8 +459,50 @@ export class RemoteNode extends EventEmitterWithError<
 	 * @internal
 	 */
 	private _handleInternalMeshMessage(data: any): void {
-		// Emit a special internal event that MeshClient can listen to
-		this.emit("_internal_mesh_message" as any, data);
+		if (data.type === "ping-discovery") {
+			// Handle ping discovery messages
+			this._handlePingDiscovery(data);
+		} else {
+			// Emit other mesh messages for MeshClient to handle
+			this.emit("_internal_mesh_message" as any, data);
+		}
+	}
+
+	/**
+	 * Handle incoming ping discovery messages
+	 * @internal
+	 */
+	private _handlePingDiscovery(data: any): void {
+		try {
+			const { ping, peers, timestamp, senderId } = data;
+
+			// Emit ping discovery event with peer information
+			this.emit("ping-discovery" as any, {
+				ping,
+				peers: Array.isArray(peers) ? peers : [],
+				timestamp,
+				senderId,
+				remotePeer: this.peer,
+			});
+
+			// If the message contains peer information, pass it to MeshClient for connection attempts
+			if (Array.isArray(peers) && peers.length > 0) {
+				logger.log(
+					`Received ping discovery from ${this.peer} with ${peers.length} peers:`,
+					peers,
+				);
+
+				// Forward to MeshClient for peer discovery processing
+				if (
+					this.provider &&
+					typeof (this.provider as any)._connectToMeshPeers === "function"
+				) {
+					(this.provider as any)._connectToMeshPeers(peers);
+				}
+			}
+		} catch (error) {
+			logger.warn(`Failed to handle ping discovery from ${this.peer}:`, error);
+		}
 	}
 
 	/**
@@ -470,12 +524,12 @@ export class RemoteNode extends EventEmitterWithError<
 		// Initial ping measurement
 		this._measurePing();
 
-		// Set up periodic ping measurements (every 5 seconds)
+		// Set up periodic ping measurements (every 1 second)
 		this._pingInterval = globalThis.setInterval(() => {
 			if (this._open && !this._destroyed) {
 				this._measurePing();
 			}
-		}, 5000);
+		}, 1000);
 	}
 
 	/**
@@ -490,7 +544,7 @@ export class RemoteNode extends EventEmitterWithError<
 	}
 
 	/**
-	 * Measures the current ping/latency to the remote node.
+	 * Measures the current ping/latency to the remote node and sends peer discovery information.
 	 * @internal
 	 */
 	private async _measurePing(): Promise<void> {
@@ -524,8 +578,45 @@ export class RemoteNode extends EventEmitterWithError<
 				this.emit("ping", avgRtt);
 				logger.log(`Ping to ${this.peer}: ${avgRtt}ms`);
 			}
+
+			// Send peer discovery information along with ping
+			this._sendPingWithPeerDiscovery(
+				rttCount > 0 ? Math.round(totalRtt / rttCount) : null,
+			);
 		} catch (error) {
 			logger.error(`Failed to measure ping for ${this.peer}:`, error);
+		}
+	}
+
+	/**
+	 * Sends ping information along with peer discovery data.
+	 * @internal
+	 */
+	private _sendPingWithPeerDiscovery(pingMs: number | null): void {
+		try {
+			// Get connected peer list from provider
+			const connectedPeers = this.provider
+				? (this.provider as any)
+						._getConnectedPeerIds()
+						.filter((id: string) => id !== this.peer)
+				: [];
+
+			const pingMessage = {
+				__peerJSInternal: true,
+				type: "ping-discovery",
+				ping: pingMs,
+				peers: connectedPeers,
+				timestamp: Date.now(),
+				senderId: this.provider?.id || null,
+			};
+
+			// Send ping discovery message using default channel for most common traffic type
+			this.send(pingMessage);
+			logger.log(
+				`Sent ping discovery to ${this.peer} with ping=${pingMs}ms and ${connectedPeers.length} peers`,
+			);
+		} catch (error) {
+			logger.warn(`Failed to send ping discovery to ${this.peer}:`, error);
 		}
 	}
 }

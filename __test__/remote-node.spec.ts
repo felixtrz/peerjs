@@ -18,7 +18,12 @@ class MockDataConnection extends EventEmitter {
 
 	_open = false;
 
-	constructor(peer: string, provider: MeshClient, node: RemoteNode, options: any = {}) {
+	constructor(
+		peer: string,
+		provider: MeshClient,
+		node: RemoteNode,
+		options: any = {},
+	) {
 		super();
 		this.peer = peer;
 		this.provider = provider;
@@ -56,19 +61,31 @@ describe("RemoteNode", () => {
 
 	beforeEach(() => {
 		meshClient = new MeshClient();
-		remoteNode = new RemoteNode("remote-peer-id", meshClient, { test: "metadata" });
-		mockConnection1 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
-			connectionId: "conn1",
+		remoteNode = new RemoteNode("remote-peer-id", meshClient, {
+			test: "metadata",
 		});
-		mockConnection2 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
-			connectionId: "conn2",
-		});
+		mockConnection1 = new MockDataConnection(
+			"remote-peer-id",
+			meshClient,
+			remoteNode,
+			{
+				connectionId: "conn1",
+			},
+		);
+		mockConnection2 = new MockDataConnection(
+			"remote-peer-id",
+			meshClient,
+			remoteNode,
+			{
+				connectionId: "conn2",
+			},
+		);
 	});
 
 	afterEach(() => {
 		// Ensure we're using real timers for cleanup
 		jest.useRealTimers();
-		
+
 		if (remoteNode && !remoteNode.destroyed) {
 			remoteNode.close();
 		}
@@ -282,12 +299,22 @@ describe("RemoteNode", () => {
 			// Mock peer ID to be larger than remote peer ID
 			Object.defineProperty(meshClient, "id", { value: "z-larger-id" });
 
-			const connection1 = new MockDataConnection("a-smaller-id", meshClient, remoteNode, {
-				connectionId: "conn1",
-			});
-			const connection2 = new MockDataConnection("a-smaller-id", meshClient, remoteNode, {
-				connectionId: "conn2",
-			});
+			const connection1 = new MockDataConnection(
+				"a-smaller-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn1",
+				},
+			);
+			const connection2 = new MockDataConnection(
+				"a-smaller-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn2",
+				},
+			);
 
 			const closeSpy1 = jest.spyOn(connection1, "close");
 			const closeSpy2 = jest.spyOn(connection2, "close");
@@ -321,12 +348,22 @@ describe("RemoteNode", () => {
 			// Mock peer ID to be smaller than remote peer ID
 			Object.defineProperty(meshClient, "id", { value: "a-smaller-id" });
 
-			const connection1 = new MockDataConnection("z-larger-id", meshClient, remoteNode, {
-				connectionId: "conn1",
-			});
-			const connection2 = new MockDataConnection("z-larger-id", meshClient, remoteNode, {
-				connectionId: "conn2",
-			});
+			const connection1 = new MockDataConnection(
+				"z-larger-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn1",
+				},
+			);
+			const connection2 = new MockDataConnection(
+				"z-larger-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn2",
+				},
+			);
 
 			const closeSpy1 = jest.spyOn(connection1, "close");
 			const closeSpy2 = jest.spyOn(connection2, "close");
@@ -416,8 +453,11 @@ describe("RemoteNode", () => {
 		});
 
 		it("should start ping monitoring when node opens", () => {
-			const pingStartSpy = jest.spyOn(remoteNode as any, "_startPingMonitoring");
-			
+			const pingStartSpy = jest.spyOn(
+				remoteNode as any,
+				"_startPingMonitoring",
+			);
+
 			// Add connection with peerConnection
 			mockConnection1.peerConnection = mockPeerConnection;
 			remoteNode._addConnection(mockConnection1 as any);
@@ -458,12 +498,12 @@ describe("RemoteNode", () => {
 			mockStats.set("candidate-pair-1", {
 				type: "candidate-pair",
 				state: "succeeded",
-				currentRoundTripTime: 0.020, // 20ms
+				currentRoundTripTime: 0.02, // 20ms
 			});
 			mockStats.set("candidate-pair-2", {
 				type: "candidate-pair",
 				state: "succeeded",
-				currentRoundTripTime: 0.030, // 30ms
+				currentRoundTripTime: 0.03, // 30ms
 			});
 			mockPeerConnection.getStats.mockResolvedValue(mockStats);
 
@@ -486,7 +526,9 @@ describe("RemoteNode", () => {
 		it("should handle getStats errors gracefully", async () => {
 			mockPeerConnection.getStats.mockRejectedValue(new Error("Stats failed"));
 
-			const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+			const errorSpy = jest
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
 			const pingSpy = jest.fn();
 			remoteNode.on("ping", pingSpy);
 
@@ -501,7 +543,7 @@ describe("RemoteNode", () => {
 
 			expect(pingSpy).not.toHaveBeenCalled();
 			expect(remoteNode.ping).toBeNull();
-			
+
 			errorSpy.mockRestore();
 		});
 
@@ -525,7 +567,7 @@ describe("RemoteNode", () => {
 
 		it("should update ping periodically", async () => {
 			jest.useFakeTimers();
-			
+
 			const mockStats = new Map();
 			mockStats.set("candidate-pair-1", {
 				type: "candidate-pair",
@@ -547,8 +589,8 @@ describe("RemoteNode", () => {
 			await Promise.resolve();
 			expect(pingSpy).toHaveBeenCalledTimes(1);
 
-			// Fast-forward 5 seconds
-			jest.advanceTimersByTime(5000);
+			// Fast-forward 1 second
+			jest.advanceTimersByTime(1000);
 			await Promise.resolve();
 
 			// Should have measured ping again
@@ -556,10 +598,9 @@ describe("RemoteNode", () => {
 
 			// Clean up before switching back to real timers
 			remoteNode.close();
-			
+
 			jest.useRealTimers();
 		});
-
 	});
 
 	describe("ping monitoring edge cases", () => {
@@ -575,15 +616,27 @@ describe("RemoteNode", () => {
 				getStats: jest.fn(),
 				iceConnectionState: "connected",
 			};
-			
+
 			meshClient = new MeshClient();
-			remoteNode = new RemoteNode("remote-peer-id", meshClient, { test: "metadata" });
-			mockConnection1 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
-				connectionId: "conn1",
+			remoteNode = new RemoteNode("remote-peer-id", meshClient, {
+				test: "metadata",
 			});
-			mockConnection2 = new MockDataConnection("remote-peer-id", meshClient, remoteNode, {
-				connectionId: "conn2",
-			});
+			mockConnection1 = new MockDataConnection(
+				"remote-peer-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn1",
+				},
+			);
+			mockConnection2 = new MockDataConnection(
+				"remote-peer-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn2",
+				},
+			);
 		});
 
 		afterEach(() => {
@@ -612,7 +665,7 @@ describe("RemoteNode", () => {
 			mockStats.set("candidate-pair-1", {
 				type: "candidate-pair",
 				state: "succeeded",
-				currentRoundTripTime: 0.030,
+				currentRoundTripTime: 0.03,
 			});
 			mockPeerConnection.getStats.mockResolvedValue(mockStats);
 
@@ -637,17 +690,17 @@ describe("RemoteNode", () => {
 			mockStats.set("candidate-pair-1", {
 				type: "candidate-pair",
 				state: "failed",
-				currentRoundTripTime: 0.100,
+				currentRoundTripTime: 0.1,
 			});
 			mockStats.set("candidate-pair-2", {
 				type: "candidate-pair",
 				state: "succeeded",
-				currentRoundTripTime: 0.020,
+				currentRoundTripTime: 0.02,
 			});
 			mockStats.set("candidate-pair-3", {
 				type: "candidate-pair",
 				state: "in-progress",
-				currentRoundTripTime: 0.050,
+				currentRoundTripTime: 0.05,
 			});
 			mockPeerConnection.getStats.mockResolvedValue(mockStats);
 
@@ -715,6 +768,302 @@ describe("RemoteNode", () => {
 			(remoteNode as any)._stopPingMonitoring();
 
 			jest.useRealTimers();
+		});
+	});
+
+	describe("ping discovery functionality", () => {
+		let mockPeerConnection: any;
+		let meshClient: MeshClient;
+		let remoteNode: RemoteNode;
+		let mockConnection1: MockDataConnection;
+
+		beforeEach(() => {
+			// Use fake timers for ping discovery tests
+			jest.useFakeTimers();
+
+			mockPeerConnection = {
+				getStats: jest.fn(),
+				iceConnectionState: "connected",
+			};
+
+			meshClient = new MeshClient();
+			(meshClient as any)._open = true;
+			(meshClient as any)._id = "mesh-client-id";
+
+			// Mock _getConnectedPeerIds method
+			(meshClient as any)._getConnectedPeerIds = jest
+				.fn()
+				.mockReturnValue(["peer1", "peer2", "peer3"]);
+
+			// Mock _connectToMeshPeers method
+			(meshClient as any)._connectToMeshPeers = jest.fn();
+
+			remoteNode = new RemoteNode("remote-peer-id", meshClient, {
+				test: "metadata",
+			});
+
+			mockConnection1 = new MockDataConnection(
+				"remote-peer-id",
+				meshClient,
+				remoteNode,
+				{
+					connectionId: "conn1",
+				},
+			);
+		});
+
+		afterEach(() => {
+			if (remoteNode && !remoteNode.destroyed) {
+				remoteNode.close();
+			}
+			// Use real timers after each test
+			jest.useRealTimers();
+		});
+
+		it("should send ping discovery messages during ping measurement", async () => {
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.03, // 30ms
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			// Spy on the send method
+			const sendSpy = jest.spyOn(remoteNode, "send");
+
+			// Add connection and simulate it opening
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Allow microtasks to resolve
+			await Promise.resolve();
+
+			// Should have sent ping discovery message
+			expect(sendSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					__peerJSInternal: true,
+					type: "ping-discovery",
+					ping: 30,
+					peers: ["peer1", "peer2", "peer3"],
+					senderId: null, // The MeshClient.id is null in test environment
+				}),
+			);
+		});
+
+		it("should send ping discovery with null ping when no RTT available", async () => {
+			const mockStats = new Map();
+			// No valid candidate pairs
+			mockStats.set("other-stat", {
+				type: "inbound-rtp",
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			const sendSpy = jest.spyOn(remoteNode, "send");
+
+			// Add connection and simulate it opening
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Allow microtasks to resolve
+			await Promise.resolve();
+
+			// Should have sent ping discovery message with null ping
+			expect(sendSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					__peerJSInternal: true,
+					type: "ping-discovery",
+					ping: null,
+					peers: ["peer1", "peer2", "peer3"],
+					senderId: null, // The MeshClient.id is null in test environment
+				}),
+			);
+		});
+
+		it("should handle incoming ping discovery messages", () => {
+			const pingDiscoverySpy = jest.fn();
+			remoteNode.on("ping-discovery" as any, pingDiscoverySpy);
+
+			// Add connection and make it open
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Simulate receiving ping discovery message through connection
+			const discoveryData = {
+				__peerJSInternal: true,
+				type: "ping-discovery",
+				ping: 25,
+				peers: ["discoveredPeer1", "discoveredPeer2"],
+				timestamp: Date.now(),
+				senderId: "sender-peer-id",
+			};
+
+			mockConnection1.emit("data", discoveryData);
+
+			// Should emit ping-discovery event
+			expect(pingDiscoverySpy).toHaveBeenCalledWith({
+				ping: 25,
+				peers: ["discoveredPeer1", "discoveredPeer2"],
+				timestamp: expect.any(Number),
+				senderId: "sender-peer-id",
+				remotePeer: "remote-peer-id",
+			});
+		});
+
+		it("should connect to discovered peers", () => {
+			// Add connection and make it open
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Simulate receiving ping discovery message with peers through connection
+			const discoveryData = {
+				__peerJSInternal: true,
+				type: "ping-discovery",
+				ping: 25,
+				peers: ["newPeer1", "newPeer2"],
+				timestamp: Date.now(),
+				senderId: "sender-peer-id",
+			};
+
+			mockConnection1.emit("data", discoveryData);
+
+			// Should call _connectToMeshPeers on the provider
+			expect((meshClient as any)._connectToMeshPeers).toHaveBeenCalledWith([
+				"newPeer1",
+				"newPeer2",
+			]);
+		});
+
+		it("should handle malformed ping discovery messages gracefully", () => {
+			const errorSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+			const pingDiscoverySpy = jest.fn();
+			remoteNode.on("ping-discovery" as any, pingDiscoverySpy);
+
+			// Add connection and make it open
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Simulate malformed ping discovery message through connection
+			const malformedData = {
+				__peerJSInternal: true,
+				type: "ping-discovery",
+				// Missing required fields
+			};
+
+			mockConnection1.emit("data", malformedData);
+
+			// Should handle gracefully without crashing
+			expect(pingDiscoverySpy).toHaveBeenCalledWith({
+				ping: undefined,
+				peers: [],
+				timestamp: undefined,
+				senderId: undefined,
+				remotePeer: "remote-peer-id",
+			});
+
+			errorSpy.mockRestore();
+		});
+
+		it("should filter out own peer ID from peer list", async () => {
+			// Mock getConnectedPeerIds to include the target peer
+			(meshClient as any)._getConnectedPeerIds = jest.fn().mockReturnValue([
+				"peer1",
+				"remote-peer-id",
+				"peer2", // Include the target peer
+			]);
+
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.02,
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			const sendSpy = jest.spyOn(remoteNode, "send");
+
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Allow microtasks to resolve
+			await Promise.resolve();
+
+			// Should exclude the target peer from the list
+			expect(sendSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					peers: ["peer1", "peer2"], // remote-peer-id should be filtered out
+				}),
+			);
+		});
+
+		it("should send ping discovery with empty peer list when no other peers connected", async () => {
+			// Mock empty peer list
+			(meshClient as any)._getConnectedPeerIds = jest.fn().mockReturnValue([
+				"remote-peer-id", // Only the target peer
+			]);
+
+			const mockStats = new Map();
+			mockStats.set("candidate-pair-1", {
+				type: "candidate-pair",
+				state: "succeeded",
+				currentRoundTripTime: 0.015,
+			});
+			mockPeerConnection.getStats.mockResolvedValue(mockStats);
+
+			const sendSpy = jest.spyOn(remoteNode, "send");
+
+			mockConnection1.peerConnection = mockPeerConnection;
+			mockConnection1._open = true;
+			remoteNode._addConnection(mockConnection1 as any);
+			mockConnection1.emit("open");
+
+			// Allow microtasks to resolve
+			await Promise.resolve();
+
+			// Should send with empty peer list
+			expect(sendSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					peers: [], // Empty after filtering
+				}),
+			);
+		});
+
+		it("should handle ping discovery when provider is null", async () => {
+			// Create node with null provider
+			const nodeWithoutProvider = new RemoteNode("test-peer", null as any);
+			const mockConn = new MockDataConnection(
+				"test-peer",
+				null as any,
+				nodeWithoutProvider,
+				{
+					connectionId: "conn1",
+				},
+			);
+
+			const sendSpy = jest.spyOn(nodeWithoutProvider, "send");
+
+			// Mock the _sendPingWithPeerDiscovery method directly
+			const pingDiscoverySpy = jest.spyOn(
+				nodeWithoutProvider as any,
+				"_sendPingWithPeerDiscovery",
+			);
+
+			// Call the method directly since we can't set up full ping flow
+			(nodeWithoutProvider as any)._sendPingWithPeerDiscovery(25);
+
+			// Should handle gracefully without crashing
+			expect(pingDiscoverySpy).toHaveBeenCalledWith(25);
+
+			nodeWithoutProvider.close();
 		});
 	});
 });

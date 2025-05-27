@@ -41,3 +41,27 @@ if (typeof global.setInterval === "undefined") {
 if (typeof global.clearInterval === "undefined") {
 	global.clearInterval = clearInterval;
 }
+if (typeof globalThis.setInterval === "undefined") {
+	globalThis.setInterval = setInterval;
+}
+if (typeof globalThis.clearInterval === "undefined") {
+	globalThis.clearInterval = clearInterval;
+}
+
+// Add setImmediate polyfill for tests
+if (typeof global.setImmediate === "undefined") {
+	global.setImmediate = (
+		callback: (...args: any[]) => void,
+		...args: any[]
+	) => {
+		return setTimeout(callback, 0, ...args);
+	};
+}
+if (typeof globalThis.setImmediate === "undefined") {
+	globalThis.setImmediate = (
+		callback: (...args: any[]) => void,
+		...args: any[]
+	) => {
+		return setTimeout(callback, 0, ...args);
+	};
+}

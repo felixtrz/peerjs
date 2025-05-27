@@ -5,4 +5,5 @@ module.exports = {
 		"^.+\\.(t|j)sx?$": ["@swc/jest"],
 	},
 	modulePathIgnorePatterns: ["e2e"],
+	setupFilesAfterEnv: ["<rootDir>/__test__/setup.ts"],
 };
