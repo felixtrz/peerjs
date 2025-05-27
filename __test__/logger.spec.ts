@@ -2,7 +2,7 @@ import Logger, { LogLevel } from "../src/utils/logger";
 import { expect, beforeAll, afterAll, describe, it } from "@jest/globals";
 
 describe("Logger", () => {
-	let oldLoggerPrint;
+	let oldLoggerPrint: (logLevel: LogLevel, ...rest: any[]) => void;
 	beforeAll(() => {
 		//@ts-ignore
 		oldLoggerPrint = Logger._print;
@@ -13,7 +13,7 @@ describe("Logger", () => {
 	});
 
 	it("should be accept new log level", () => {
-		const checkedLevels = [];
+		const checkedLevels: LogLevel[] = [];
 
 		Logger.setLogFunction((logLevel) => {
 			checkedLevels.push(logLevel);
@@ -33,7 +33,7 @@ describe("Logger", () => {
 	it("should accept new log function", () => {
 		Logger.logLevel = LogLevel.All;
 
-		const checkedLevels = [];
+		const checkedLevels: LogLevel[] = [];
 		const testMessage = "test it";
 
 		Logger.setLogFunction((logLevel, ...args) => {

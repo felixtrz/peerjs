@@ -6,12 +6,12 @@ const fakeGlobals = {
 	RTCSessionDescription: class RTCSessionDescription {
 		type: RTCSdpType;
 		sdp: string;
-		
+
 		constructor(init?: RTCSessionDescriptionInit) {
 			this.type = init?.type || "offer";
 			this.sdp = init?.sdp || "";
 		}
-		
+
 		toJSON(): RTCSessionDescriptionInit {
 			return {
 				type: this.type,
@@ -37,7 +37,7 @@ const fakeGlobals = {
 		}
 	},
 	MediaStreamTrack: class MediaStreamTrack {
-		kind: string;
+		kind?: string;
 		id: string;
 
 		private static _idCounter = 0;
@@ -56,7 +56,9 @@ const fakeGlobals = {
 		connectionState: RTCPeerConnectionState = "new";
 		onicecandidate: ((event: RTCPeerConnectionIceEvent) => void) | null = null;
 		ondatachannel: ((event: RTCDataChannelEvent) => void) | null = null;
-		onicecandidateerror: ((event: RTCPeerConnectionIceErrorEvent) => void) | null = null;
+		onicecandidateerror:
+			| ((event: RTCPeerConnectionIceErrorEvent) => void)
+			| null = null;
 		onconnectionstatechange: ((event: Event) => void) | null = null;
 		oniceconnectionstatechange: ((event: Event) => void) | null = null;
 		onicegatheringstatechange: ((event: Event) => void) | null = null;
@@ -73,7 +75,10 @@ const fakeGlobals = {
 			this.signalingState = "closed";
 		}
 
-		createDataChannel(label: string, _options?: RTCDataChannelInit): RTCDataChannel {
+		createDataChannel(
+			label: string,
+			_options?: RTCDataChannelInit,
+		): RTCDataChannel {
 			return {
 				label,
 				id: Math.floor(Math.random() * 65535),
@@ -99,26 +104,34 @@ const fakeGlobals = {
 			} as unknown as RTCDataChannel;
 		}
 
-		createOffer(_options?: RTCOfferOptions): Promise<RTCSessionDescriptionInit> {
+		createOffer(
+			_options?: RTCOfferOptions,
+		): Promise<RTCSessionDescriptionInit> {
 			return Promise.resolve({
 				type: "offer",
 				sdp: "mock-sdp-offer",
 			});
 		}
 
-		createAnswer(_options?: RTCAnswerOptions): Promise<RTCSessionDescriptionInit> {
+		createAnswer(
+			_options?: RTCAnswerOptions,
+		): Promise<RTCSessionDescriptionInit> {
 			return Promise.resolve({
 				type: "answer",
 				sdp: "mock-sdp-answer",
 			});
 		}
 
-		setLocalDescription(description?: RTCLocalSessionDescriptionInit): Promise<void> {
+		setLocalDescription(
+			description?: RTCLocalSessionDescriptionInit,
+		): Promise<void> {
 			this.localDescription = description as RTCSessionDescription;
 			return Promise.resolve();
 		}
 
-		setRemoteDescription(description: RTCSessionDescriptionInit): Promise<void> {
+		setRemoteDescription(
+			description: RTCSessionDescriptionInit,
+		): Promise<void> {
 			this.remoteDescription = description as RTCSessionDescription;
 			return Promise.resolve();
 		}
@@ -147,12 +160,12 @@ const fakeGlobals = {
 		}
 	},
 	RTCRtpSender: class RTCRtpSender {
-		readonly dtmf: RTCDTMFSender | null;
-		readonly rtcpTransport: RTCDtlsTransport | null;
-		track: MediaStreamTrack | null;
-		readonly transport: RTCDtlsTransport | null;
+		readonly dtmf?: RTCDTMFSender;
+		readonly rtcpTransport?: RTCDtlsTransport;
+		track?: MediaStreamTrack;
+		readonly transport?: RTCDtlsTransport;
 
-		replaceTrack(withTrack: MediaStreamTrack | null): Promise<void> {
+		replaceTrack(withTrack?: MediaStreamTrack): Promise<void> {
 			this.track = withTrack;
 
 			return Promise.resolve();

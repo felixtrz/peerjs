@@ -35,7 +35,7 @@ describe("Peer", () => {
 	});
 
 	describe("reconnect", () => {
-		let mockServer;
+		let mockServer: Server;
 
 		beforeAll(() => {
 			mockServer = createMockServer();
@@ -443,7 +443,7 @@ describe("Peer", () => {
 				// Should have thrown
 				expect(true).toBe(false);
 			} catch (error) {
-				expect(error.message).toContain("cannot reconnect");
+				expect((error as any).message).toContain("cannot reconnect");
 			}
 			done();
 		});

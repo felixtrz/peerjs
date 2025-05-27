@@ -8,7 +8,7 @@ const originalConsoleLog = console.log;
 
 console.error = (...args: any[]) => {
 	// Filter out PeerJS error messages
-	if (args.some(arg => typeof arg === 'string' && arg.includes('PeerJS:'))) {
+	if (args.some((arg) => typeof arg === "string" && arg.includes("PeerJS:"))) {
 		return;
 	}
 	originalConsoleError(...args);
@@ -16,7 +16,7 @@ console.error = (...args: any[]) => {
 
 console.warn = (...args: any[]) => {
 	// Filter out PeerJS warning messages
-	if (args.some(arg => typeof arg === 'string' && arg.includes('PeerJS:'))) {
+	if (args.some((arg) => typeof arg === "string" && arg.includes("PeerJS:"))) {
 		return;
 	}
 	originalConsoleWarn(...args);
@@ -24,7 +24,7 @@ console.warn = (...args: any[]) => {
 
 console.log = (...args: any[]) => {
 	// Filter out PeerJS log messages
-	if (args.some(arg => typeof arg === 'string' && arg.includes('PeerJS:'))) {
+	if (args.some((arg) => typeof arg === "string" && arg.includes("PeerJS:"))) {
 		return;
 	}
 	originalConsoleLog(...args);
@@ -35,9 +35,9 @@ util.supports.data = true;
 util.randomToken = () => "testToken";
 
 // Ensure global timer functions are available
-if (typeof global.setInterval === 'undefined') {
+if (typeof global.setInterval === "undefined") {
 	global.setInterval = setInterval;
 }
-if (typeof global.clearInterval === 'undefined') {
+if (typeof global.clearInterval === "undefined") {
 	global.clearInterval = clearInterval;
 }
