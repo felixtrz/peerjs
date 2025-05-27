@@ -1,7 +1,7 @@
 import { EventEmitter } from "eventemitter3";
 import logger from "../utils/logger";
 import { ServerMessageType, SocketEventType } from "../utils/enums";
-import { version } from "../../package.json";
+import { VERSION } from "../version";
 
 /**
  * An abstraction on top of WebSockets to provide fastest
@@ -39,7 +39,7 @@ export class Socket extends EventEmitter {
 			return;
 		}
 
-		this._socket = new WebSocket(wsUrl + "&version=" + version);
+		this._socket = new WebSocket(wsUrl + "&version=" + VERSION);
 		this._disconnected = false;
 
 		this._socket.onmessage = (event) => {

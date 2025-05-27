@@ -1,27 +1,24 @@
-lib-cov
-coverage
-*.seed
-*.log
-*.csv
-*.dat
-*.out
-*.pid
-*.[t]gz
+/.yarn/*
+!/.yarn/releases
+!/.yarn/plugins
+!/.yarn/sdks
 
-dist
-pids
-logs
-results
-demo
-bower.json
-node_modules
-.parcel-cache
-.idea
-npm-debug.log
-.DS_STORE
+# Swap the comments on the following lines if you don't wish to use zero-installs
+# Documentation here: https://yarnpkg.com/features/zero-installs
+!/.yarn/cache
+#/.pnp.*
 
-test/output
-browserstack.err
-.tscache
-test/public
-.vscode/
+lib/
+build/
+dist/
+node_modules/
+
+/.vscode/
+*.tgz
+.DS_Store
+
+.parcel-cache/
+e2e/logs/
+
+version.ts
+coverage/*

@@ -79,7 +79,8 @@
 		}
 	},
 	"scripts": {
-		"contributors": "git-authors-cli --print=false && prettier --write package.json && git add package.json package-lock.json && git commit -m \"chore(contributors): update and sort contributors list\"",
+		"generate:version": "node scripts/generate-version.js",
+		"prebuild": "npm run generate:version",
 		"check": "tsc --noEmit && tsc -p e2e/tsconfig.json --noEmit",
 		"watch": "parcel watch",
 		"build": "rm -rf dist && parcel build",

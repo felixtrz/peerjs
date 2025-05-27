@@ -301,8 +301,12 @@ describe("Peer", () => {
 			const errorSpy = jest.fn();
 			peer.on("error", errorSpy);
 
-			const result = peer.connect("remote-peer-id");
-			expect(result).toBeUndefined();
+			// Should throw when trying to connect while disconnected
+			expect(() => {
+				peer.connect("remote-peer-id");
+			}).toThrow("Cannot connect to new Peer after disconnecting from server.");
+
+			// Should also emit an error event
 			expect(errorSpy).toHaveBeenCalledWith(
 				expect.objectContaining({
 					type: MeshClientErrorType.Disconnected,

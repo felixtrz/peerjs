@@ -1,7 +1,7 @@
 import { util } from "../utils/utils";
 import logger from "../utils/logger";
 import type { MeshClientJSOption } from "../options";
-import { version } from "../../package.json";
+import { VERSION } from "../version";
 
 export class API {
 	constructor(private readonly _options: MeshClientJSOption) {}
@@ -13,7 +13,7 @@ export class API {
 		const url = new URL(`${protocol}://${host}:${port}${path}${key}/${method}`);
 		// TODO: Why timestamp, why random?
 		url.searchParams.set("ts", `${Date.now()}${Math.random()}`);
-		url.searchParams.set("version", version);
+		url.searchParams.set("version", VERSION);
 		return fetch(url.href, {
 			referrerPolicy: this._options.referrerPolicy,
 		});

@@ -36,10 +36,10 @@ describe("Mesh Networking", () => {
 		jest.clearAllMocks();
 	});
 
-	describe("Connection attempt tracking", () => {
-		it("should track connection attempts", () => {
-			const connectionAttempts = (clientA as any)._connectionAttempts;
-			expect(connectionAttempts.size).toBe(0);
+	describe("Connection management", () => {
+		it("should create remote nodes when connecting", () => {
+			const remoteNodes = (clientA as any)._remoteNodes;
+			expect(remoteNodes.size).toBe(0);
 
 			// Mock the serializers to avoid WebRTC
 			(clientA as any)._serializers.default = jest
@@ -64,45 +64,57 @@ describe("Mesh Networking", () => {
 			jest
 				.spyOn(clientA as any, "connect")
 				.mockImplementation((peer: string) => {
-					// The real connect marks as attempted
-					connectionAttempts.add(peer);
+					// The real connect creates a node
+					remoteNodes.set(peer, mockNode);
 					return mockNode as any;
 				});
 
 			clientA.connect("client-b");
-			expect(connectionAttempts.has("client-b")).toBe(true);
+			expect(remoteNodes.has("client-b")).toBe(true);
 		});
 
-		it("should prevent duplicate connection attempts", () => {
-			const connectionAttempts = (clientA as any)._connectionAttempts;
-			connectionAttempts.add("client-b");
+		it("should return existing node for duplicate connections", () => {
+			const remoteNodes = (clientA as any)._remoteNodes;
+			
+			// Create a mock node and add it to remoteNodes
+			const mockNode = {
+				peer: "client-b",
+				open: false,
+				connectionCount: 1,
+				once: jest.fn(),
+				on: jest.fn(),
+				_addConnection: jest.fn(),
+			};
+			remoteNodes.set("client-b", mockNode);
 
 			// Mock the logger.warn
 			const warnSpy = jest.spyOn(logger, "warn").mockImplementation(() => {});
 
-			clientA.connect("client-b");
+			const result = clientA.connect("client-b");
 
 			expect(warnSpy).toHaveBeenCalledWith(
 				expect.stringContaining(
 					"Connection attempt to client-b already in progress",
 				),
 			);
+			expect(result).toBe(mockNode);
 
 			warnSpy.mockRestore();
 		});
 
-		it("should clean up connection attempts when node is removed", () => {
-			const connectionAttempts = (clientA as any)._connectionAttempts;
-			connectionAttempts.add("client-b");
+		it("should remove node when _removeNode is called", () => {
+			const remoteNodes = (clientA as any)._remoteNodes;
 
-			// Create a mock node
+			// Create a mock node and add it to remoteNodes
 			const mockNode = {
 				peer: "client-b",
 				close: jest.fn(),
 			};
+			remoteNodes.set("client-b", mockNode);
 
+			expect(remoteNodes.has("client-b")).toBe(true);
 			clientA._removeNode(mockNode as any);
-			expect(connectionAttempts.has("client-b")).toBe(false);
+			expect(remoteNodes.has("client-b")).toBe(false);
 		});
 	});
 
@@ -169,21 +181,6 @@ describe("Mesh Networking", () => {
 			connectSpy.mockRestore();
 		});
 
-		it("should skip peers with connection attempts in progress", () => {
-			const connectSpy = jest
-				.spyOn(clientA, "connect")
-				.mockImplementation(() => null as any);
-
-			// Add to connection attempts
-			(clientA as any)._connectionAttempts.add("client-b");
-
-			(clientA as any)._connectToMeshPeers(["client-b", "client-c"]);
-
-			expect(connectSpy).not.toHaveBeenCalledWith("client-b");
-			expect(connectSpy).toHaveBeenCalledWith("client-c");
-
-			connectSpy.mockRestore();
-		});
 	});
 
 	describe("Mesh networking event handling", () => {

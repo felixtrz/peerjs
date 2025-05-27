@@ -132,7 +132,6 @@ export class MeshClient extends EventEmitterWithError<
 	private readonly _lostMessages: Map<string, ServerMessage[]> = new Map(); // src => [list of messages]
 
 	// Mesh networking
-	private readonly _connectionAttempts: Set<string> = new Set(); // Track connection attempts to prevent duplicates
 	private readonly _meshHandshakes: Map<
 		string,
 		{ sent: boolean; received: boolean; retryCount: number; retryTimeout?: any }
@@ -357,7 +356,7 @@ export class MeshClient extends EventEmitterWithError<
 			case ServerMessageType.Open: // The connection to the server is open.
 				this._lastServerId = this.id;
 				this._open = true;
-				this.emit("open", this.id);
+				this.emit("open", this.id!);
 				break;
 			case ServerMessageType.Error: // Server error.
 				this._abort(MeshClientErrorType.ServerError, payload.msg);
@@ -485,7 +484,7 @@ export class MeshClient extends EventEmitterWithError<
 			this._lostMessages.set(connectionId, []);
 		}
 
-		this._lostMessages.get(connectionId).push(message);
+		this._lostMessages.get(connectionId)!.push(message);
 	}
 
 	/**
@@ -525,22 +524,19 @@ export class MeshClient extends EventEmitterWithError<
 				MeshClientErrorType.Disconnected,
 				"Cannot connect to new Peer after disconnecting from server.",
 			);
-			return;
+			throw new MeshClientError(
+				MeshClientErrorType.Disconnected,
+				"Cannot connect to new Peer after disconnecting from server.",
+			);
 		}
 
 		// Prevent duplicate connection attempts
-		if (this._connectionAttempts.has(peer)) {
+		if (this._remoteNodes.has(peer)) {
 			logger.warn(`Connection attempt to ${peer} already in progress`);
 			// Return existing node if we have one
-			const existingNode = this._remoteNodes.get(peer);
-			if (existingNode) {
-				return existingNode;
-			}
-			return;
+			return this._remoteNodes.get(peer)!;
 		}
 
-		// Mark this peer as being attempted
-		this._connectionAttempts.add(peer);
 
 		// Get or create node for this peer
 		let node: RemoteNode | undefined = this._remoteNodes.get(peer);
@@ -560,27 +556,10 @@ export class MeshClient extends EventEmitterWithError<
 				options.label || (options.reliable === false ? "realtime" : "reliable"),
 		};
 		const dataConnection = new this._serializers[
-			connectionOptions.serialization
+			connectionOptions.serialization!
 		](peer, this, node, connectionOptions);
 		node._addConnection(dataConnection);
 
-		// Clean up connection attempts when the node closes or errors
-		const cleanupAttempt = () => {
-			this._connectionAttempts.delete(peer);
-		};
-
-		// Set up one-time listeners for cleanup
-		const setupCleanup = () => {
-			node.once("close", cleanupAttempt);
-			node.once("error", cleanupAttempt);
-			// Also clean up when connection succeeds
-			node.once("open", cleanupAttempt);
-		};
-
-		// Only set up cleanup if this is the first connection to this node
-		if (!node.open && node.connectionCount === 1) {
-			setupCleanup();
-		}
 
 		return node;
 	}
@@ -618,7 +597,7 @@ export class MeshClient extends EventEmitterWithError<
 				options.label || (options.reliable === false ? "realtime" : "reliable"),
 		};
 		const dataConnection = new this._serializers[
-			connectionOptions.serialization
+			connectionOptions.serialization!
 		](peer, this, node, connectionOptions);
 		node._addConnection(dataConnection);
 
@@ -633,8 +612,6 @@ export class MeshClient extends EventEmitterWithError<
 	/** Remove a node from this peer. */
 	_removeNode(node: RemoteNode): void {
 		this._remoteNodes.delete(node.peer);
-		// Clean up connection attempts tracking
-		this._connectionAttempts.delete(node.peer);
 		// Clean up mesh handshake tracking
 		const handshake = this._meshHandshakes.get(node.peer);
 		if (handshake?.retryTimeout) {
@@ -830,24 +807,18 @@ export class MeshClient extends EventEmitterWithError<
 			// Skip if it's our own ID
 			if (peerId === this.id) continue;
 
-			// Skip if we already have a connection or attempt in progress
-			if (
-				this._remoteNodes.has(peerId) ||
-				this._connectionAttempts.has(peerId)
-			) {
+			// Skip if we already have a connection
+			if (this._remoteNodes.has(peerId)) {
 				continue;
 			}
 
 			logger.log(`Connecting to mesh peer ${peerId}`);
 
-			// Attempt connection - connect() will handle marking as attempted
+			// Attempt connection
 			try {
 				this.connect(peerId);
 			} catch (error) {
 				logger.warn(`Failed to connect to mesh peer ${peerId}:`, error);
-				// If connection failed, it should have been cleaned up by connect()
-				// but just in case, remove it from attempts
-				this._connectionAttempts.delete(peerId);
 			}
 		}
 	}
@@ -945,7 +916,7 @@ export class MeshClient extends EventEmitterWithError<
 		this._lastServerId = currentId;
 		this._id = null;
 
-		this.emit("disconnected", currentId);
+		this.emit("disconnected", currentId!);
 	}
 
 	/** Attempts to reconnect with the same ID.
