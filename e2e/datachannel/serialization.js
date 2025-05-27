@@ -1,7 +1,7 @@
 /**
  * @type {typeof import("../../src/index.js").MeshClient}
  */
-const MeshClient = window.linkt.MeshClient;
+const MeshClient = window.Linkt.MeshClient;
 
 const params = new URLSearchParams(document.location.search);
 const testfile = params.get("testfile");

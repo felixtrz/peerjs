@@ -13,7 +13,7 @@ describe("Multi-Channel Support", () => {
 		// Initialize peer 1
 		await browser.switchToWindow(handles[0]);
 		await browser.executeAsync((done: (id: string) => void) => {
-			const { MeshClient } = (window as any).linkt;
+			const { MeshClient } = (window as any).Linkt;
 			(window as any).mesh = new MeshClient();
 			(window as any).messages = [];
 
@@ -32,7 +32,7 @@ describe("Multi-Channel Support", () => {
 		// Initialize peer 2
 		await browser.switchToWindow(handles[1]);
 		const id2 = await browser.executeAsync((done: (id: string) => void) => {
-			const { MeshClient } = (window as any).linkt;
+			const { MeshClient } = (window as any).Linkt;
 			(window as any).mesh = new MeshClient();
 			(window as any).messages = [];
 

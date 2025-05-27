@@ -24,11 +24,11 @@ export class MultiChannelPage {
 
 		await browser.executeAsync((opts: any, done: (result?: any) => void) => {
 			try {
-				if (!(window as any).linkt) {
+				if (!(window as any).Linkt) {
 					throw new Error("PeerJS not loaded");
 				}
 
-				const { MeshClient } = (window as any).linkt;
+				const { MeshClient } = (window as any).Linkt;
 
 				if (!MeshClient) {
 					throw new Error("MeshClient not found in linkt");

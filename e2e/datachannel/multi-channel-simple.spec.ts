@@ -13,7 +13,7 @@ describe("Multi-Channel Simple Test", () => {
 		await browser.switchToWindow(handles[0]);
 		const id1 = await browser.executeAsync((done: (id: string) => void) => {
 			// Use MeshClient which is the actual exported name in the bundle
-			const { MeshClient } = (window as any).linkt;
+			const { MeshClient } = (window as any).Linkt;
 			(window as any).mesh = new MeshClient();
 			(window as any).messages = [];
 
@@ -32,7 +32,7 @@ describe("Multi-Channel Simple Test", () => {
 		// Initialize MeshClient 2
 		await browser.switchToWindow(handles[1]);
 		const id2 = await browser.executeAsync((done: (id: string) => void) => {
-			const { MeshClient } = (window as any).linkt;
+			const { MeshClient } = (window as any).Linkt;
 			(window as any).mesh = new MeshClient();
 			(window as any).messages = [];
 
