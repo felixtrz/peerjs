@@ -2,13 +2,27 @@ import { browser } from "@wdio/globals";
 
 export class MultiChannelPage {
 	private url: string;
+	private windowHandle?: string;
 
 	constructor(url = "/e2e/datachannel/multi-channel.html") {
 		this.url = url;
 	}
 
 	async go() {
-		await browser.url(this.url);
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		} else {
+			const handles = await browser.getWindowHandles();
+			if (handles.length === 0) {
+				await browser.url(this.url);
+				this.windowHandle = (await browser.getWindowHandles())[0];
+			} else {
+				// Create a new window for this page instance
+				await browser.newWindow(this.url);
+				const newHandles = await browser.getWindowHandles();
+				this.windowHandle = newHandles[newHandles.length - 1];
+			}
+		}
 	}
 
 	async init(
@@ -16,11 +30,8 @@ export class MultiChannelPage {
 			meshEnabled?: boolean;
 		} = {},
 	) {
-		// Only navigate if we're not already on the page
-		const currentUrl = await browser.getUrl();
-		if (!currentUrl.includes(this.url)) {
-			await this.go();
-		}
+		// Navigate to the page (creates new window if needed)
+		await this.go();
 
 		await browser.executeAsync((opts: any, done: (result?: any) => void) => {
 			try {
@@ -35,7 +46,7 @@ export class MultiChannelPage {
 				}
 
 				(window as any).mesh = new MeshClient(null, {
-					meshEnabled: opts.meshEnabled ?? true,
+					debug: 1,
 				});
 
 				(window as any).messages = [];
@@ -106,6 +117,9 @@ export class MultiChannelPage {
 	}
 
 	async getId(): Promise<string> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
 		return await browser.execute(() => (window as any).meshId);
 	}
 
@@ -113,6 +127,9 @@ export class MultiChannelPage {
 		peerId: string,
 		options: { reliable?: boolean } = {},
 	): Promise<void> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
 		await browser.execute(
 			(peerId: string, options: any) => {
 				const node = (window as any).mesh.connect(peerId, options);
@@ -137,6 +154,9 @@ export class MultiChannelPage {
 	}
 
 	async waitForConnection(): Promise<void> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
 		// For the receiving peer, wait for the connection event
 		await browser.waitUntil(
 			async () => {
@@ -177,6 +197,9 @@ export class MultiChannelPage {
 		message: string,
 		options?: { reliable?: boolean },
 	): Promise<void> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
 		await browser.execute(
 			(message: string, options: any) => {
 				const node = (window as any).currentNode;
@@ -212,6 +235,9 @@ export class MultiChannelPage {
 		message: string,
 		options?: { reliable?: boolean },
 	): Promise<void> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
 		await browser.execute(
 			(message: string, options: any) => {
 				(window as any).mesh.broadcast(message, options);
@@ -222,6 +248,9 @@ export class MultiChannelPage {
 	}
 
 	async waitForMessage(): Promise<string> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
 		await browser.waitUntil(
 			async () => {
 				const msgCount = await browser.execute(
@@ -251,10 +280,16 @@ export class MultiChannelPage {
 	}
 
 	async getConsoleWarnings(): Promise<string[]> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
 		return await browser.execute(() => (window as any).consoleWarnings);
 	}
 
 	async mockChannelCreationFailure(channelType: string): Promise<void> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
 		await browser.execute((type: string) => {
 			(window as any).channelCreationFailures.add(type);
 
@@ -277,6 +312,43 @@ export class MultiChannelPage {
 		Array<{ type: string; channel: string; data: any }>
 	> {
 		return await browser.execute(() => (window as any).internalMessages);
+	}
+
+	async getMeshInfo(): Promise<any> {
+		if (this.windowHandle) {
+			await browser.switchToWindow(this.windowHandle);
+		}
+		return await browser.execute(() => {
+			const mesh = (window as any).mesh;
+			if (!mesh) return null;
+
+			const remoteNodes = mesh._remoteNodes;
+			const nodeInfo: any = {};
+
+			if (remoteNodes) {
+				for (const [peerId, node] of remoteNodes) {
+					nodeInfo[peerId] = {
+						peerId: peerId,
+						open: node._open,
+						connections: node._connections
+							? node._connections.map((conn: any) => ({
+									id: conn.connectionId,
+									open: conn.open,
+									type: conn.type,
+									label: conn.label,
+								}))
+							: [],
+					};
+				}
+			}
+
+			return {
+				meshId: (window as any).meshId,
+				connectedNodes: Object.keys(nodeInfo),
+				nodeDetails: nodeInfo,
+				totalConnections: remoteNodes ? remoteNodes.size : 0,
+			};
+		});
 	}
 }
 

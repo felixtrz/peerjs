@@ -1,4 +1,7 @@
-import { EventEmitterWithError, type EventsWithError } from "./p2p/mesh-client-error";
+import {
+	EventEmitterWithError,
+	type EventsWithError,
+} from "./p2p/mesh-client-error";
 import type { DataConnection } from "./p2p/data-connection";
 import type { MeshClient } from "./mesh-client";
 import type { ServerMessage } from "./server/server-message";
@@ -31,7 +34,10 @@ export interface RemoteNodeEvents extends EventsWithError<string> {
 /**
  * Represents a remote client (peer) and manages all connections to it.
  */
-export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> {
+export class RemoteNode extends EventEmitterWithError<
+	string,
+	RemoteNodeEvents
+> {
 	private _connections: DataConnection[] = [];
 	private _open = false;
 	private _destroyed = false;
@@ -40,8 +46,9 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	private _pingInterval: ReturnType<typeof setInterval> | null = null;
 
 	// Multi-channel support
-	private readonly _channelMap: Map<'reliable' | 'realtime', DataConnection> = new Map();
-	private _defaultChannelType: 'reliable' | 'realtime' = 'reliable';
+	private readonly _channelMap: Map<"reliable" | "realtime", DataConnection> =
+		new Map();
+	private _defaultChannelType: "reliable" | "realtime" = "reliable";
 	private _connectOptions?: MeshClientConnectOption;
 
 	/**
@@ -95,7 +102,8 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		this.metadata = metadata;
 		this._connectOptions = options;
 		// Set default channel type based on options
-		this._defaultChannelType = options?.reliable === false ? 'realtime' : 'reliable';
+		this._defaultChannelType =
+			options?.reliable === false ? "realtime" : "reliable";
 	}
 
 	/**
@@ -123,8 +131,11 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		this._connections.push(connection);
 
 		// Map connection to channel type if it has a specific label
-		if (connection.label === 'reliable' || connection.label === 'realtime') {
-			this._channelMap.set(connection.label as 'reliable' | 'realtime', connection);
+		if (connection.label === "reliable" || connection.label === "realtime") {
+			this._channelMap.set(
+				connection.label as "reliable" | "realtime",
+				connection,
+			);
 		}
 
 		// Set up event handlers for this connection
@@ -233,9 +244,10 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 				const connectionsByChannelType = new Map<string, DataConnection[]>();
 				for (const conn of currentOpenConnections) {
 					// Only group by label if it's a special channel type
-					const channelType = (conn.label === 'reliable' || conn.label === 'realtime') 
-						? conn.label 
-						: 'default';
+					const channelType =
+						conn.label === "reliable" || conn.label === "realtime"
+							? conn.label
+							: "default";
 					if (!connectionsByChannelType.has(channelType)) {
 						connectionsByChannelType.set(channelType, []);
 					}
@@ -245,7 +257,9 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 				// For each channel type, keep the first connection and close the rest
 				for (const [channelType, conns] of connectionsByChannelType) {
 					if (conns.length > 1) {
-						logger.log(`Deduplicating ${conns.length} connections of type '${channelType}' for node ${this.peer}`);
+						logger.log(
+							`Deduplicating ${conns.length} connections of type '${channelType}' for node ${this.peer}`,
+						);
 						// Sort to ensure both peers keep the same one
 						conns.sort((a, b) => a.connectionId.localeCompare(b.connectionId));
 						// Keep the first, close the rest
@@ -273,9 +287,12 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		}
 
 		// Determine which channel to use
-		const channelType = options?.reliable !== undefined 
-			? (options.reliable ? 'reliable' : 'realtime')
-			: this._defaultChannelType;
+		const channelType =
+			options?.reliable !== undefined
+				? options.reliable
+					? "reliable"
+					: "realtime"
+				: this._defaultChannelType;
 
 		// Get or create the appropriate channel
 		const connection = this._getOrCreateChannel(channelType);
@@ -288,11 +305,12 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		// If specific channel not available, fallback to any open connection
 		const openConnection = this._connections.find((conn) => conn.open);
 		if (openConnection) {
-			logger.warn(`Using fallback connection for ${channelType} message to ${this.peer}`);
+			logger.warn(
+				`Using fallback connection for ${channelType} message to ${this.peer}`,
+			);
 			openConnection.send(data);
 			return;
 		}
-
 		this.emitError(
 			"NoOpenConnection",
 			"No open connections available to send data.",
@@ -303,10 +321,17 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	 * Gets or creates a channel of the specified type.
 	 * @internal
 	 */
-	private _getOrCreateChannel(channelType: 'reliable' | 'realtime'): DataConnection | null {
+	private _getOrCreateChannel(
+		channelType: "reliable" | "realtime",
+	): DataConnection | null {
 		// Check if channel already exists
 		const existingChannel = this._channelMap.get(channelType);
-		if (existingChannel && !existingChannel.open && this._connections.includes(existingChannel)) {
+
+		if (
+			existingChannel &&
+			!existingChannel.open &&
+			this._connections.includes(existingChannel)
+		) {
 			// Channel exists and is still in connections list
 			return existingChannel;
 		}
@@ -315,15 +340,15 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 		}
 
 		// Create new channel lazily
-		logger.log(`Lazily creating ${channelType} channel to ${this.peer}`);
 		const options: MeshClientConnectOption = {
 			...this._connectOptions,
 			label: channelType,
-			reliable: channelType === 'reliable',
+			reliable: channelType === "reliable",
 		};
 
 		// Create connection through provider
 		const connection = this.provider._createDataConnection(this.peer, options);
+
 		if (connection) {
 			this._channelMap.set(channelType, connection);
 			// The connection will be added to this node automatically by the provider
@@ -331,7 +356,6 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 
 		return connection;
 	}
-
 
 	/**
 	 * Closes all connections to the remote peer and destroys the node.
@@ -410,10 +434,12 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	 * @internal
 	 */
 	private _isInternalMeshMessage(data: any): boolean {
-		return data && 
-			typeof data === "object" && 
+		return (
+			data &&
+			typeof data === "object" &&
 			data.__peerJSInternal === true &&
-			(data.type === "mesh-peers" || data.type === "mesh-peers-ack");
+			(data.type === "mesh-peers" || data.type === "mesh-peers-ack")
+		);
 	}
 
 	/**
@@ -468,7 +494,9 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 	 * @internal
 	 */
 	private async _measurePing(): Promise<void> {
-		const openConnection = this._connections.find((conn) => conn.open && conn.peerConnection);
+		const openConnection = this._connections.find(
+			(conn) => conn.open && conn.peerConnection,
+		);
 		if (!openConnection || !openConnection.peerConnection) {
 			return;
 		}
@@ -480,7 +508,11 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 
 			stats.forEach((report) => {
 				// Look for candidate-pair stats which contain RTT
-				if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
+				if (
+					report.type === "candidate-pair" &&
+					report.state === "succeeded" &&
+					report.currentRoundTripTime
+				) {
 					totalRtt += report.currentRoundTripTime * 1000; // Convert to milliseconds
 					rttCount++;
 				}
@@ -489,7 +521,7 @@ export class RemoteNode extends EventEmitterWithError<string, RemoteNodeEvents> 
 			if (rttCount > 0) {
 				const avgRtt = Math.round(totalRtt / rttCount);
 				this._ping = avgRtt;
-				this.emit('ping', avgRtt);
+				this.emit("ping", avgRtt);
 				logger.log(`Ping to ${this.peer}: ${avgRtt}ms`);
 			}
 		} catch (error) {
