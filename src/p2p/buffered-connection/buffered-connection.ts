@@ -12,8 +12,8 @@ export abstract class BufferedConnection extends DataConnection {
 
 	public override _initializeDataChannel(dc: RTCDataChannel) {
 		super._initializeDataChannel(dc);
-		this.dataChannel.binaryType = "arraybuffer";
-		this.dataChannel.addEventListener("message", (e) =>
+		this.dataChannel!.binaryType = "arraybuffer";
+		this.dataChannel!.addEventListener("message", (e) =>
 			this._handleDataMessage(e),
 		);
 	}
@@ -33,7 +33,7 @@ export abstract class BufferedConnection extends DataConnection {
 			return false;
 		}
 
-		if (this.dataChannel.bufferedAmount > DataConnection.MAX_BUFFERED_AMOUNT) {
+		if (this.dataChannel!.bufferedAmount > DataConnection.MAX_BUFFERED_AMOUNT) {
 			this._buffering = true;
 			setTimeout(() => {
 				this._buffering = false;
@@ -44,7 +44,7 @@ export abstract class BufferedConnection extends DataConnection {
 		}
 
 		try {
-			this.dataChannel.send(msg);
+			this.dataChannel!.send(msg);
 		} catch (e) {
 			logger.error(`DC#:${this.connectionId} Error when sending:`, e);
 			this._buffering = true;

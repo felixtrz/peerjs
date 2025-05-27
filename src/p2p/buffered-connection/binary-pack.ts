@@ -32,17 +32,19 @@ export class BinaryPack extends BufferedConnection {
 		const deserializedData = unpack(data);
 
 		// PeerJS specific message
-		const peerData = deserializedData["__peerData"];
-		if (peerData) {
-			if (peerData.type === "close") {
-				this.close();
+		if (deserializedData && typeof deserializedData === 'object' && '__peerData' in deserializedData) {
+			const peerData = (deserializedData as any).__peerData;
+			if (peerData) {
+				if (peerData.type === "close") {
+					this.close();
+					return;
+				}
+
+				// Chunked data -- piece things back together.
+				// @ts-ignore
+				this._handleChunk(deserializedData);
 				return;
 			}
-
-			// Chunked data -- piece things back together.
-			// @ts-ignore
-			this._handleChunk(deserializedData);
-			return;
 		}
 
 		this.emit("data", deserializedData);
@@ -76,10 +78,11 @@ export class BinaryPack extends BufferedConnection {
 		}
 	}
 
-	protected override _send(data: Packable, chunked: boolean) {
+	protected override _send(data: Packable, chunked: boolean): void {
 		const blob = pack(data);
 		if (blob instanceof Promise) {
-			return this._send_blob(blob);
+			this._send_blob(blob);
+			return;
 		}
 
 		if (!chunked && blob.byteLength > this.chunker.chunkedMTU) {

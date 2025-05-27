@@ -68,8 +68,8 @@ export abstract class DataConnection extends EventEmitterWithError<
 	readonly metadata: any;
 	connectionId: string;
 
-	peerConnection: RTCPeerConnection;
-	dataChannel: RTCDataChannel;
+	peerConnection!: RTCPeerConnection;
+	dataChannel!: RTCDataChannel | null;
 
 	/**
 	 * The optional label passed in or assigned by PeerJS when the connection was initiated.
@@ -84,7 +84,7 @@ export abstract class DataConnection extends EventEmitterWithError<
 		return this._open;
 	}
 
-	private _negotiator: Negotiator<DataConnection>;
+	private _negotiator: Negotiator<DataConnection> | null;
 	abstract readonly serialization: string;
 	readonly reliable: boolean;
 
@@ -97,8 +97,8 @@ export abstract class DataConnection extends EventEmitterWithError<
 		 * The ID of the peer on the other end of this connection.
 		 */
 		readonly peer: string,
-		public provider: MeshClient,
-		public node: RemoteNode,
+		public provider: MeshClient | null,
+		public node: RemoteNode | null,
 		readonly options: any,
 	) {
 		super();
@@ -205,10 +205,10 @@ export abstract class DataConnection extends EventEmitterWithError<
 
 		switch (message.type) {
 			case ServerMessageType.Answer:
-				await this._negotiator.handleSDP(message.type, payload.sdp);
+				await this._negotiator?.handleSDP(message.type, payload.sdp);
 				break;
 			case ServerMessageType.Candidate:
-				await this._negotiator.handleCandidate(payload.candidate);
+				await this._negotiator?.handleCandidate(payload.candidate);
 				break;
 			default:
 				logger.warn(

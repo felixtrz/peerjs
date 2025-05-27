@@ -87,12 +87,11 @@ export class Util extends BinaryPackChunker {
 
 		if (!supported.webRTC) return supported;
 
-		let pc: RTCPeerConnection;
+		let pc: RTCPeerConnection | undefined;
+		let dc: RTCDataChannel | undefined;
 
 		try {
 			pc = new RTCPeerConnection(DEFAULT_CONFIG);
-
-			let dc: RTCDataChannel;
 
 			try {
 				dc = pc.createDataChannel("_PEERJSTEST", { ordered: true });

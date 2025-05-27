@@ -45,7 +45,7 @@ export class Negotiator<Connection extends DataConnection> {
 		logger.log("Creating RTCPeerConnection.");
 
 		const peerConnection = new RTCPeerConnection(
-			this.connection.provider.options.config,
+			this.connection.provider?.options.config || {},
 		);
 
 		this._setupListeners(peerConnection);
@@ -68,7 +68,7 @@ export class Negotiator<Connection extends DataConnection> {
 
 			logger.log(`Received ICE candidates for ${peerId}:`, evt.candidate);
 
-			provider.socket.send({
+			provider?.socket.send({
 				type: ServerMessageType.Candidate,
 				payload: {
 					candidate: evt.candidate,
@@ -126,7 +126,7 @@ export class Negotiator<Connection extends DataConnection> {
 			logger.log("Received data channel");
 
 			const dataChannel = evt.channel;
-			const node = provider.getNode(peerId);
+			const node = provider?.getNode(peerId);
 			const connection = <DataConnection>node?.getConnection(connectionId);
 
 			connection._initializeDataChannel(dataChannel);
@@ -142,7 +142,7 @@ export class Negotiator<Connection extends DataConnection> {
 			return;
 		}
 
-		this.connection.peerConnection = null;
+		this.connection.peerConnection = null as any;
 
 		//unsubscribe from all PeerConnection's events
 		peerConnection.onicecandidate =
@@ -212,7 +212,7 @@ export class Negotiator<Connection extends DataConnection> {
 					};
 				}
 
-				provider.socket.send({
+				provider?.socket.send({
 					type: ServerMessageType.Offer,
 					payload,
 					dst: this.connection.peer,
@@ -223,12 +223,12 @@ export class Negotiator<Connection extends DataConnection> {
 					err !=
 					"OperationError: Failed to set local offer sdp: Called in wrong state: kHaveRemoteOffer"
 				) {
-					provider.emitError(MeshClientErrorType.WebRTC, err);
+					provider?.emitError(MeshClientErrorType.WebRTC, err instanceof Error ? err : String(err));
 					logger.log("Failed to setLocalDescription, ", err);
 				}
 			}
 		} catch (err_1) {
-			provider.emitError(MeshClientErrorType.WebRTC, err_1);
+			provider?.emitError(MeshClientErrorType.WebRTC, err_1 instanceof Error ? err_1 : String(err_1));
 			logger.log("Failed to createOffer, ", err_1);
 		}
 	}
@@ -258,7 +258,7 @@ export class Negotiator<Connection extends DataConnection> {
 					`for:${this.connection.peer}`,
 				);
 
-				provider.socket.send({
+				provider?.socket.send({
 					type: ServerMessageType.Answer,
 					payload: {
 						sdp: answer,
@@ -268,11 +268,11 @@ export class Negotiator<Connection extends DataConnection> {
 					dst: this.connection.peer,
 				});
 			} catch (err) {
-				provider.emitError(MeshClientErrorType.WebRTC, err);
+				provider?.emitError(MeshClientErrorType.WebRTC, err instanceof Error ? err : String(err));
 				logger.log("Failed to setLocalDescription, ", err);
 			}
 		} catch (err_1) {
-			provider.emitError(MeshClientErrorType.WebRTC, err_1);
+			provider?.emitError(MeshClientErrorType.WebRTC, err_1 instanceof Error ? err_1 : String(err_1));
 			logger.log("Failed to create answer, ", err_1);
 		}
 	}
@@ -294,7 +294,7 @@ export class Negotiator<Connection extends DataConnection> {
 				await self._makeAnswer();
 			}
 		} catch (err) {
-			provider.emitError(MeshClientErrorType.WebRTC, err);
+			provider?.emitError(MeshClientErrorType.WebRTC, err instanceof Error ? err : String(err));
 			logger.log("Failed to setRemoteDescription, ", err);
 		}
 	}
@@ -307,7 +307,7 @@ export class Negotiator<Connection extends DataConnection> {
 			await this.connection.peerConnection.addIceCandidate(ice);
 			logger.log(`Added ICE candidate for:${this.connection.peer}`);
 		} catch (err) {
-			this.connection.provider.emitError(MeshClientErrorType.WebRTC, err);
+			this.connection.provider?.emitError(MeshClientErrorType.WebRTC, err instanceof Error ? err : String(err));
 			logger.log("Failed to handleCandidate, ", err);
 		}
 	}

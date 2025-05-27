@@ -22,7 +22,7 @@ export class BinaryPackChunker {
 			const chunk = {
 				__peerData: this._dataCount,
 				n: index,
-				data: b,
+				data: new Uint8Array(b),
 				total,
 			};
 
